@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>groma</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; }
+#app { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+.screen { position: absolute; inset: 0; transition: transform 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.35s; overflow: hidden; }
+.screen.off-right { transform: translateX(100%); opacity: 0; pointer-events: none; }
+
+/* ── MAIN ── */
+#main { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; }
+canvas.vis { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+#btn { width: 120px; height: 120px; border-radius: 50%; border: 0.5px solid rgba(0,0,0,0.18); background: transparent; cursor: pointer; outline: none; transition: transform 0.08s; position: relative; z-index: 1; -webkit-tap-highlight-color: transparent; }
+#btn.held { transform: scale(0.97); }
+#time-display { margin-top: 2.5rem; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 56px; position: relative; z-index: 1; }
+#elapsed { font-size: 32px; font-weight: 400; font-family: 'Courier New', monospace; color: #111; letter-spacing: 0.04em; transition: opacity 0.4s; font-variant-numeric: tabular-nums; }
+#elapsed.idle { opacity: 0; }
+#total-disp { font-size: 13px; font-family: 'Courier New', monospace; color: #aaa; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+#total-disp.hidden { opacity: 0; }
+#corner-trigger { position: absolute; bottom: 20px; right: 20px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 2; -webkit-tap-highlight-color: transparent; }
+#corner-dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(0,0,0,0.18); transition: background 0.2s, transform 0.2s; }
+#corner-trigger.pressing #corner-dot { background: #888; transform: scale(1.6); }
+#progress-ring { position: absolute; bottom: 6px; right: 6px; width: 56px; height: 56px; pointer-events: none; transform: rotate(-90deg); z-index: 2; }
+#progress-circle { fill: none; stroke: rgba(0,0,0,0.15); stroke-width: 0.5; stroke-dasharray: 150.8; stroke-dashoffset: 150.8; }
+#collective-link { position: absolute; bottom: 20px; left: 20px; font-size: 11px; font-family: 'Courier New', monospace; color: #bbb; letter-spacing: 0.04em; background: none; border: none; cursor: pointer; outline: none; z-index: 2; }
+
+/* settings */
+#settings-panel { position: absolute; bottom: 64px; right: 20px; background: #fff; border: 0.5px solid rgba(0,0,0,0.1); border-radius: 12px; padding: 8px 0; min-width: 200px; opacity: 0; pointer-events: none; transform: translateY(6px); transition: opacity 0.2s, transform 0.2s; z-index: 10; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+#settings-panel.visible { opacity: 1; pointer-events: all; transform: translateY(0); }
+.s-label { font-size: 11px; font-family: 'Courier New', monospace; color: #bbb; padding: 10px 16px 4px; letter-spacing: 0.06em; }
+.opt-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 16px; cursor: pointer; transition: background 0.1s; }
+.opt-row:hover { background: #f5f5f5; }
+.opt-label { font-size: 13px; font-family: 'Courier New', monospace; color: #555; }
+.opt-dot { width: 6px; height: 6px; border-radius: 50%; border: 0.5px solid rgba(0,0,0,0.2); background: transparent; transition: background 0.15s; }
+.opt-dot.on { background: #111; border-color: #111; }
+.s-divider { height: 0.5px; background: rgba(0,0,0,0.08); margin: 4px 0; }
+.sound-link-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 16px; cursor: pointer; transition: background 0.1s; }
+.sound-link-row:hover { background: #f5f5f5; }
+.sound-link-label { font-size: 13px; font-family: 'Courier New', monospace; color: #555; }
+.arrow { font-size: 11px; color: #bbb; }
+.forced-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 16px; opacity: 0.4; }
+.forced-label { font-size: 13px; font-family: 'Courier New', monospace; color: #555; }
+.forced-badge { font-size: 10px; font-family: 'Courier New', monospace; color: #bbb; letter-spacing: 0.04em; }
+
+/* ── SOUND ── */
+#sound-screen { background: #fff; display: flex; flex-direction: column; overflow-y: auto; }
+.sound-header { display: flex; align-items: center; gap: 12px; padding: 20px 20px 16px; border-bottom: 0.5px solid rgba(0,0,0,0.08); flex-shrink: 0; }
+.back-btn { background: none; border: none; cursor: pointer; font-size: 16px; font-family: 'Courier New', monospace; color: #555; outline: none; line-height: 1; }
+.screen-title { font-size: 13px; font-family: 'Courier New', monospace; color: #bbb; letter-spacing: 0.04em; }
+.mode-section { border-bottom: 0.5px solid rgba(0,0,0,0.08); padding: 14px 0 8px; }
+.mode-section:last-child { border-bottom: none; }
+.mode-title { font-size: 11px; font-family: 'Courier New', monospace; color: #bbb; letter-spacing: 0.06em; padding: 0 20px 8px; }
+.snd-opt { display: flex; align-items: center; justify-content: space-between; padding: 8px 20px; cursor: pointer; transition: background 0.1s; }
+.snd-opt:hover { background: #f5f5f5; }
+.snd-check { width: 6px; height: 6px; border-radius: 50%; border: 0.5px solid rgba(0,0,0,0.2); background: transparent; transition: background 0.15s; flex-shrink: 0; margin-right: 10px; }
+.snd-check.on { background: #111; border-color: #111; }
+.snd-name { font-size: 13px; font-family: 'Courier New', monospace; color: #555; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.snd-tag { font-size: 10px; font-family: 'Courier New', monospace; color: #bbb; }
+.snd-left { display: flex; align-items: center; }
+.snd-remove { font-size: 11px; font-family: 'Courier New', monospace; color: #ccc; background: none; border: none; cursor: pointer; outline: none; padding: 2px 4px; margin-left: 4px; }
+.upload-row { display: flex; align-items: center; gap: 10px; padding: 8px 20px; cursor: pointer; opacity: 0.5; transition: opacity 0.15s; }
+.upload-row:hover { opacity: 0.8; }
+.upload-plus { font-size: 13px; font-family: 'Courier New', monospace; color: #888; }
+.upload-label { font-size: 13px; font-family: 'Courier New', monospace; color: #555; }
+input[type=file] { display: none; }
+
+/* ── COLLECTIVE ── */
+#collective { background: #000; display: flex; align-items: center; justify-content: center; }
+#collective canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+.coll-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 44px; margin-top: 40px; }
+#coll-total { font-size: 52px; font-weight: 400; font-family: 'Courier New', monospace; letter-spacing: -0.02em; color: rgba(255,255,255,0.9); font-variant-numeric: tabular-nums; text-shadow: 0 0 60px rgba(255,160,40,0.3); }
+#coll-now { font-size: 24px; font-weight: 400; font-family: 'Courier New', monospace; color: rgba(255,255,255,0.3); font-variant-numeric: tabular-nums; }
+
+#coll-back { position: fixed; top: 16px; left: 16px; z-index: 9999; font-size: 13px; font-family: 'Courier New', monospace; color: #fff; background: rgba(255,255,255,0.12); border: 0.5px solid rgba(255,255,255,0.4); border-radius: 8px; padding: 6px 14px; cursor: pointer; outline: none; letter-spacing: 0.04em; transition: background 0.15s; display: none; }
+#coll-back.visible { display: block; }
+#coll-back:hover { background: rgba(255,255,255,0.22); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="main" class="screen">
+    <canvas class="vis" id="vis"></canvas>
+    <button id="btn"></button>
+    <div id="time-display">
+      <span id="elapsed" class="idle">0:00</span>
+      <span id="total-disp" class="hidden"></span>
+    </div>
+    <button id="collective-link">∞</button>
+    <div id="corner-trigger"><div id="corner-dot"></div></div>
+    <svg id="progress-ring" viewBox="0 0 56 56"><circle id="progress-circle" cx="28" cy="28" r="24"/></svg>
+    <div id="settings-panel">
+      <div class="s-label">mode</div>
+      <div class="opt-row" data-mode="enjoy"><span class="opt-label">enjoy</span><div class="opt-dot"></div></div>
+      <div class="opt-row" data-mode="nothing"><span class="opt-label">nothing</span><div class="opt-dot on"></div></div>
+      <div class="opt-row" data-mode="endure"><span class="opt-label">endure</span><div class="opt-dot"></div></div>
+      <div class="opt-row" data-mode="random"><span class="opt-label">random</span><div class="opt-dot"></div></div>
+      <div class="s-divider"></div>
+      <div class="sound-link-row" id="sound-link"><span class="sound-link-label">sound</span><span class="arrow">›</span></div>
+      <div class="s-divider"></div>
+      <div class="forced-row"><span class="forced-label">forced</span><span class="forced-badge">tbd</span></div>
+    </div>
+  </div>
+
+  <div id="sound-screen" class="screen off-right">
+    <div class="sound-header"><button class="back-btn" id="sound-back">‹</button><span class="screen-title">sound</span></div>
+    <div class="mode-section">
+      <div class="mode-title">enjoy</div>
+      <div class="snd-opt" data-mode="enjoy" data-sound="lofi"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">lofi</span></div><span class="snd-tag">random</span></div>
+      <div class="snd-opt" data-mode="enjoy" data-sound="rain"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">rain</span></div><span class="snd-tag">random</span></div>
+      <div class="snd-opt" data-mode="enjoy" data-sound="wave"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">wave</span></div><span class="snd-tag">random</span></div>
+      <div class="snd-opt" data-mode="enjoy" data-sound="wind"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">wind</span></div><span class="snd-tag">random</span></div>
+      <div id="enjoy-user-tracks"></div>
+      <label class="upload-row" for="enjoy-upload"><span class="upload-plus">+</span><span class="upload-label">upload</span></label>
+      <input type="file" id="enjoy-upload" accept="audio/*" multiple>
+    </div>
+    <div class="mode-section">
+      <div class="mode-title">nothing</div>
+      <div class="snd-opt" data-mode="nothing" data-sound="silent"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">silent</span></div><span class="snd-tag">random</span></div>
+      <div class="snd-opt" data-mode="nothing" data-sound="white"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">white noise</span></div><span class="snd-tag">random</span></div>
+      <div class="snd-opt" data-mode="nothing" data-sound="brown"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">brown noise</span></div><span class="snd-tag">random</span></div>
+    </div>
+    <div class="mode-section">
+      <div class="mode-title">endure</div>
+      <div class="snd-opt" data-mode="endure" data-sound="highfreq"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">high freq</span></div><span class="snd-tag">random</span></div>
+      <div class="snd-opt" data-mode="endure" data-sound="irregular"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">irregular noise</span></div><span class="snd-tag">random</span></div>
+      <div class="snd-opt" data-mode="endure" data-sound="dissonance"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">dissonance</span></div><span class="snd-tag">random</span></div>
+      <div id="endure-user-tracks"></div>
+      <label class="upload-row" for="endure-upload"><span class="upload-plus">+</span><span class="upload-label">upload</span></label>
+      <input type="file" id="endure-upload" accept="audio/*" multiple>
+    </div>
+  </div>
+
+  <div id="collective" class="screen off-right">
+    <canvas id="cvis"></canvas>
+    <div class="coll-content">
+      <div id="coll-total">0:00:00</div>
+      <div id="coll-now">0</div>
+    </div>
+  </div>
+</div>
+<button id="coll-back">‹ back</button>
+
+<script>
+// ══════════════════════════════════════════
+// SUPABASE CONFIG
+// ここに自分のSupabaseのURLとanon keyを入れる
+// ══════════════════════════════════════════
+const SUPABASE_URL = 'https://kjxnqryshvspzkymuarn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_ZsCEvX9GYmvlLauxFD13Pw_qUQlZ4Oi';
+
+// Supabaseクライアント（CDN不使用、fetch直接）
+async function sbFetch(path, options = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+      ...options.headers
+    }
+  });
+  if (!res.ok) return null;
+  return res.json().catch(() => null);
+}
+
+// ══════════════════════════════════════════
+// SUPABASE INTEGRATION
+// テーブル設計:
+//   sessions(id, started_at, ended_at, duration_seconds)
+//   stats(id, total_seconds bigint, active_count int)
+//     ※ statsテーブルはid=1の単一行を使う
+// ══════════════════════════════════════════
+
+let sessionId = null;
+
+async function sessionStart() {
+  try {
+    const data = await sbFetch('sessions', {
+      method: 'POST',
+      body: JSON.stringify({ started_at: new Date().toISOString(), duration_seconds: 0 })
+    });
+    if (data && data[0]) sessionId = data[0].id;
+    // active_countをインクリメント
+    await sbFetch('rpc/increment_active', { method: 'POST', body: '{}' });
+  } catch(e) {}
+}
+
+async function sessionEnd(durationSec) {
+  try {
+    if (sessionId) {
+      await sbFetch(`sessions?id=eq.${sessionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ ended_at: new Date().toISOString(), duration_seconds: Math.floor(durationSec) })
+      });
+      sessionId = null;
+    }
+    // active_countをデクリメント、total_secondsを加算
+    await sbFetch('rpc/end_session', {
+      method: 'POST',
+      body: JSON.stringify({ duration: Math.floor(durationSec) })
+    });
+  } catch(e) {}
+}
+
+async function fetchStats() {
+  try {
+    const data = await sbFetch('stats?id=eq.1');
+    if (data && data[0]) {
+      updateCollective(data[0].total_seconds, data[0].active_count);
+    }
+  } catch(e) {}
+}
+
+function updateCollective(totalSec, activeCount) {
+  document.getElementById('coll-total').textContent = fmtColl(totalSec);
+  document.getElementById('coll-now').textContent = activeCount;
+}
+
+// 10秒ごとに全体統計を取得
+setInterval(fetchStats, 10000);
+fetchStats();
+
+// ══════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════
+const collBack = document.getElementById('coll-back');
+function goTo(name) {
+  document.getElementById('main').classList.toggle('off-right', name !== 'main');
+  document.getElementById('sound-screen').classList.toggle('off-right', name !== 'sound');
+  document.getElementById('collective').classList.toggle('off-right', name !== 'collective');
+  collBack.classList.toggle('visible', name === 'collective');
+}
+function goBack() { goTo('main'); }
+document.getElementById('sound-link').addEventListener('click', () => { closeSettings(); goTo('sound'); });
+document.getElementById('sound-back').addEventListener('click', goBack);
+document.getElementById('collective-link').addEventListener('click', () => { goTo('collective'); fetchStats(); });
+collBack.addEventListener('click', goBack);
+
+// ══════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════
+const settingsPanel = document.getElementById('settings-panel');
+let settingsOpen = false;
+function openSettings() { settingsOpen = true; settingsPanel.classList.add('visible'); }
+function closeSettings() { settingsOpen = false; settingsPanel.classList.remove('visible'); }
+let currentMode = 'nothing';
+document.querySelectorAll('.opt-row').forEach(row => {
+  row.addEventListener('click', () => {
+    currentMode = row.dataset.mode;
+    if (currentMode === 'random') { const m = ['enjoy','nothing','endure']; currentMode = m[Math.floor(Math.random()*m.length)]; }
+    document.querySelectorAll('.opt-dot').forEach(d => d.classList.remove('on'));
+    row.querySelector('.opt-dot').classList.add('on');
+    setTimeout(closeSettings, 200);
+  });
+});
+document.addEventListener('click', e => { if (settingsOpen && !settingsPanel.contains(e.target) && !document.getElementById('corner-trigger').contains(e.target)) closeSettings(); });
+
+// ══════════════════════════════════════════
+// CORNER LONG PRESS
+// ══════════════════════════════════════════
+const cornerTrigger = document.getElementById('corner-trigger');
+const progressCircle = document.getElementById('progress-circle');
+const CIRC = 150.8, HOLD_MS = 1200;
+let cornerHeld = false, cornerStart = null, cornerRaf = null;
+function cornerTick(ts) { if (!cornerHeld) return; const p = Math.min((ts - cornerStart) / HOLD_MS, 1); progressCircle.style.strokeDashoffset = CIRC * (1 - p); if (p < 1) cornerRaf = requestAnimationFrame(cornerTick); else { openSettings(); cornerHeld = false; cornerTrigger.classList.remove('pressing'); } }
+cornerTrigger.addEventListener('mousedown', e => { e.stopPropagation(); if (settingsOpen) { closeSettings(); return; } cornerHeld = true; cornerStart = performance.now(); cornerTrigger.classList.add('pressing'); cornerRaf = requestAnimationFrame(cornerTick); });
+cornerTrigger.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); if (settingsOpen) { closeSettings(); return; } cornerHeld = true; cornerStart = performance.now(); cornerTrigger.classList.add('pressing'); cornerRaf = requestAnimationFrame(cornerTick); }, { passive: false });
+function endCorner() { if (!cornerHeld) return; cornerHeld = false; cornerTrigger.classList.remove('pressing'); cancelAnimationFrame(cornerRaf); progressCircle.style.strokeDashoffset = CIRC; }
+
+// ══════════════════════════════════════════
+// AUDIO
+// ══════════════════════════════════════════
+const soundEnabled = { enjoy: { lofi:true, rain:true, wave:true, wind:true }, nothing: { silent:true, white:true, brown:true }, endure: { highfreq:true, irregular:true, dissonance:true } };
+document.querySelectorAll('.snd-opt').forEach(opt => { opt.addEventListener('click', () => { const m = opt.dataset.mode, s = opt.dataset.sound; soundEnabled[m][s] = !soundEnabled[m][s]; opt.querySelector('.snd-check').classList.toggle('on', soundEnabled[m][s]); }); });
+
+const userTracks = { enjoy: [], endure: [] };
+function renderUserTracks(mode) {
+  const container = document.getElementById(`${mode}-user-tracks`);
+  container.innerHTML = '';
+  userTracks[mode].forEach((track, i) => {
+    const row = document.createElement('div');
+    row.className = 'snd-opt';
+    row.innerHTML = `<div class="snd-left"><div class="snd-check${track.enabled?' on':''}"></div><span class="snd-name">${track.name}</span></div><div style="display:flex;align-items:center;gap:4px;"><span class="snd-tag">upload</span><button class="snd-remove">×</button></div>`;
+    row.querySelector('.snd-left').addEventListener('click', () => { track.enabled = !track.enabled; renderUserTracks(mode); });
+    row.querySelector('.snd-remove').addEventListener('click', e => { e.stopPropagation(); userTracks[mode].splice(i, 1); renderUserTracks(mode); });
+    container.appendChild(row);
+  });
+}
+
+let actx = null, audioNodes = [], beatInterval = null, chordInterval = null;
+function getCtx() { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); return actx; }
+function stopAudio() {
+  if (beatInterval) { clearInterval(beatInterval); beatInterval = null; }
+  if (chordInterval) { clearInterval(chordInterval); chordInterval = null; }
+  audioNodes.forEach(n => { try { n.stop && n.stop(0); n.disconnect && n.disconnect(); } catch(e) {} });
+  audioNodes = [];
+}
+
+function handleUpload(mode, files) {
+  const ctx = getCtx();
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => { ctx.decodeAudioData(e.target.result.slice(0), buf => { userTracks[mode].push({ name: file.name.replace(/\.[^.]+$/, ''), buffer: buf, enabled: true }); renderUserTracks(mode); }); };
+    reader.readAsArrayBuffer(file);
+  });
+}
+document.getElementById('enjoy-upload').addEventListener('change', e => { handleUpload('enjoy', e.target.files); e.target.value = ''; });
+document.getElementById('endure-upload').addEventListener('change', e => { handleUpload('endure', e.target.files); e.target.value = ''; });
+
+function pickSound(mode) {
+  const builtIn = Object.entries(soundEnabled[mode]).filter(([,v]) => v).map(([k]) => ({ key: k }));
+  const user = userTracks[mode].filter(t => t.enabled).map(t => ({ key: '__user__', track: t }));
+  const all = [...builtIn, ...user];
+  if (!all.length) return { key: 'silent' };
+  return all[Math.floor(Math.random() * all.length)];
+}
+
+function startAudio(mode) {
+  stopAudio();
+  const picked = pickSound(mode);
+  if (picked.key === '__user__') {
+    const ctx = getCtx(); if (ctx.state === 'suspended') ctx.resume();
+    const src = ctx.createBufferSource(); src.buffer = picked.track.buffer; src.loop = true;
+    const g = ctx.createGain(); g.gain.value = 0.85;
+    src.connect(g); g.connect(ctx.destination); src.start();
+    audioNodes.push(src, g);
+  } else { playSound(picked.key); }
+}
+
+function playSound(sound) {
+  if (sound === 'silent') return;
+  const ctx = getCtx(); if (ctx.state === 'suspended') ctx.resume();
+  if (sound === 'lofi') {
+    const master = ctx.createGain(); master.gain.value = 0.65; master.connect(ctx.destination); audioNodes.push(master);
+    const vbuf = ctx.createBuffer(1, ctx.sampleRate*3, ctx.sampleRate); const vd = vbuf.getChannelData(0); for (let i=0;i<vd.length;i++) vd[i]=(Math.random()*2-1)*0.015;
+    const vinyl = ctx.createBufferSource(); vinyl.buffer=vbuf; vinyl.loop=true; const vhp=ctx.createBiquadFilter(); vhp.type='highpass'; vhp.frequency.value=2000; const vg=ctx.createGain(); vg.gain.value=0.35; vinyl.connect(vhp); vhp.connect(vg); vg.connect(master); vinyl.start(); audioNodes.push(vinyl,vhp,vg);
+    [65.4,98,130.8].forEach(f => { const osc=ctx.createOscillator(); osc.type='sine'; osc.frequency.value=f; const lfo=ctx.createOscillator(); lfo.frequency.value=0.3+Math.random()*0.4; const lg=ctx.createGain(); lg.gain.value=f*0.003; lfo.connect(lg); lg.connect(osc.frequency); const g=ctx.createGain(); g.gain.value=0.055; osc.connect(g); g.connect(master); osc.start(); lfo.start(); audioNodes.push(osc,lfo,lg,g); });
+    const chordSets=[[261.6,329.6,392,493.9],[293.7,349.2,440,523.3],[246.9,311.1,392,466.2],[261.6,311.1,392,466.2]];
+    function playChord() { const chord=chordSets[Math.floor(Math.random()*chordSets.length)]; chord.forEach(freq => { const osc=ctx.createOscillator(); osc.type='triangle'; osc.frequency.value=freq*(0.998+Math.random()*0.004); const env=ctx.createGain(); const now=ctx.currentTime; env.gain.setValueAtTime(0,now); env.gain.linearRampToValueAtTime(0.038,now+0.08); env.gain.exponentialRampToValueAtTime(0.012,now+1.2); env.gain.exponentialRampToValueAtTime(0.0001,now+3.5); const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=2800; osc.connect(lp); lp.connect(env); env.connect(master); osc.start(now); osc.stop(now+4); audioNodes.push(osc,lp,env); }); }
+    function playHat() { const bs=Math.floor(ctx.sampleRate*0.04); const buf=ctx.createBuffer(1,bs,ctx.sampleRate); const d=buf.getChannelData(0); for(let i=0;i<bs;i++){const env=Math.pow(1-i/bs,3);d[i]=(Math.random()*2-1)*env;} const src=ctx.createBufferSource(); src.buffer=buf; const hp=ctx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=8000; const g=ctx.createGain(); g.gain.value=0.1; src.connect(hp); hp.connect(g); g.connect(master); src.start(); audioNodes.push(src,hp,g); }
+    function playKick() { const osc=ctx.createOscillator(); osc.type='sine'; const env=ctx.createGain(); const now=ctx.currentTime; osc.frequency.setValueAtTime(120,now); osc.frequency.exponentialRampToValueAtTime(40,now+0.15); env.gain.setValueAtTime(0.45,now); env.gain.exponentialRampToValueAtTime(0.0001,now+0.25); osc.connect(env); env.connect(master); osc.start(now); osc.stop(now+0.3); audioNodes.push(osc,env); }
+    const bpm=75, beat=(60/bpm)*1000; let step=0;
+    beatInterval = setInterval(() => { const s=step%8; if(s===0||s===4)playKick(); if(s%2===0||s===1||s===5)playHat(); step++; }, beat/2);
+    playChord(); chordInterval = setInterval(() => { if(Math.random()<0.6) playChord(); }, beat*4);
+  } else if (sound==='white') { const buf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const src=ctx.createBufferSource();src.buffer=buf;src.loop=true;const g=ctx.createGain();g.gain.value=0.12;src.connect(g);g.connect(ctx.destination);src.start();audioNodes.push(src,g);
+  } else if (sound==='brown') { const buf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);const d=buf.getChannelData(0);let last=0;for(let i=0;i<d.length;i++){const w=Math.random()*2-1;d[i]=(last+0.02*w)/1.02;last=d[i];d[i]*=3.5;}const src=ctx.createBufferSource();src.buffer=buf;src.loop=true;const g=ctx.createGain();g.gain.value=0.28;src.connect(g);g.connect(ctx.destination);src.start();audioNodes.push(src,g);
+  } else if (sound==='rain') { const buf=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;const src=ctx.createBufferSource();src.buffer=buf;src.loop=true;const hp=ctx.createBiquadFilter();hp.type='highpass';hp.frequency.value=4000;const g=ctx.createGain();g.gain.value=0.035;src.connect(hp);hp.connect(g);g.connect(ctx.destination);src.start();audioNodes.push(src,hp,g);beatInterval=setInterval(()=>{const count=1+Math.floor(Math.random()*4);for(let i=0;i<count;i++)setTimeout(()=>{const bs=Math.floor(ctx.sampleRate*(0.008+Math.random()*0.018));const bb=ctx.createBuffer(1,bs,ctx.sampleRate);const dd=bb.getChannelData(0);for(let j=0;j<bs;j++){const env=Math.pow(1-j/bs,1.8);dd[j]=(Math.random()*2-1)*env;}const ds=ctx.createBufferSource();ds.buffer=bb;const bf=ctx.createBiquadFilter();bf.type='bandpass';bf.frequency.value=2000+Math.random()*5000;bf.Q.value=1.5+Math.random()*2;const dg=ctx.createGain();dg.gain.value=0.05+Math.random()*0.1;ds.connect(bf);bf.connect(dg);dg.connect(ctx.destination);ds.start();audioNodes.push(ds,bf,dg);},Math.random()*40);},35);
+  } else if (sound==='wave') { const buf=ctx.createBuffer(1,ctx.sampleRate*4,ctx.sampleRate);const d=buf.getChannelData(0);let last=0;for(let i=0;i<d.length;i++){const w=Math.random()*2-1;d[i]=(last+0.04*w)/1.04;last=d[i];}const src=ctx.createBufferSource();src.buffer=buf;src.loop=true;const lp=ctx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=600;const lfo=ctx.createOscillator();lfo.frequency.value=0.18;const lg=ctx.createGain();lg.gain.value=0.18;const mg=ctx.createGain();mg.gain.value=0.35;lfo.connect(lg);lg.connect(mg.gain);src.connect(lp);lp.connect(mg);mg.connect(ctx.destination);src.start();lfo.start();audioNodes.push(src,lp,lfo,lg,mg);
+  } else if (sound==='wind') { const buf=ctx.createBuffer(1,ctx.sampleRate*4,ctx.sampleRate);const d=buf.getChannelData(0);let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0;for(let i=0;i<d.length;i++){const w=Math.random()*2-1;b0=0.99886*b0+w*0.0555179;b1=0.99332*b1+w*0.0750759;b2=0.969*b2+w*0.153852;b3=0.8665*b3+w*0.3104856;b4=0.55*b4+w*0.5329522;b5=-0.7616*b5-w*0.016898;d[i]=(b0+b1+b2+b3+b4+b5+w*0.5362)*0.11;}const src=ctx.createBufferSource();src.buffer=buf;src.loop=true;const bp=ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=400;bp.Q.value=0.4;const lfo=ctx.createOscillator();lfo.frequency.value=0.08;const lg=ctx.createGain();lg.gain.value=280;lfo.connect(lg);lg.connect(bp.frequency);const mg=ctx.createGain();mg.gain.value=0.5;const vl=ctx.createOscillator();vl.frequency.value=0.06;const vg=ctx.createGain();vg.gain.value=0.18;vl.connect(vg);vg.connect(mg.gain);src.connect(bp);bp.connect(mg);mg.connect(ctx.destination);src.start();lfo.start();vl.start();audioNodes.push(src,bp,lfo,lg,mg,vl,vg);
+  } else if (sound==='highfreq') { const osc=ctx.createOscillator();osc.frequency.value=8400;const g=ctx.createGain();g.gain.value=0.055;const lfo=ctx.createOscillator();lfo.frequency.value=0.3;const lg=ctx.createGain();lg.gain.value=120;lfo.connect(lg);lg.connect(osc.frequency);osc.connect(g);g.connect(ctx.destination);osc.start();lfo.start();audioNodes.push(osc,g,lfo,lg);
+  } else if (sound==='irregular') { const buf=ctx.createBuffer(1,ctx.sampleRate*3,ctx.sampleRate);const d=buf.getChannelData(0);for(let i=0;i<d.length;i++){const burst=Math.random()<0.003?(Math.random()*2-1)*8:0;d[i]=(Math.random()*2-1)*0.04+burst*0.12;}const src=ctx.createBufferSource();src.buffer=buf;src.loop=true;const f=ctx.createBiquadFilter();f.type='bandpass';f.frequency.value=1200;f.Q.value=0.8;const g=ctx.createGain();g.gain.value=0.45;src.connect(f);f.connect(g);g.connect(ctx.destination);src.start();audioNodes.push(src,f,g);
+  } else if (sound==='dissonance') { [220,233,311,329,415].forEach((f,i)=>{const osc=ctx.createOscillator();osc.type=i%2===0?'sawtooth':'square';osc.frequency.value=f;const g=ctx.createGain();g.gain.value=0.02;const lfo=ctx.createOscillator();lfo.frequency.value=0.05+i*0.03;const lg=ctx.createGain();lg.gain.value=f*0.015;lfo.connect(lg);lg.connect(osc.frequency);osc.connect(g);g.connect(ctx.destination);osc.start();lfo.start();audioNodes.push(osc,g,lfo,lg);}); }
+}
+
+// ══════════════════════════════════════════
+// VISUAL
+// ══════════════════════════════════════════
+const visCanvas = document.getElementById('vis'); const vc = visCanvas.getContext('2d');
+function resizeVis() { visCanvas.width = document.getElementById('main').offsetWidth; visCanvas.height = document.getElementById('main').offsetHeight; }
+resizeVis(); window.addEventListener('resize', resizeVis);
+const enjoyColors = [[255,243,220],[220,240,255],[230,255,235],[255,228,240],[245,235,255],[210,245,250]];
+const endureColors = [[180,210,30],[140,20,20],[200,170,0],[80,140,20],[160,30,60],[210,100,0],[100,180,20],[190,0,80],[60,130,10],[220,60,60],[170,200,0],[130,0,60],[200,180,0],[40,120,40],[210,80,20]];
+class Blob { constructor(c){this.colors=c;this.reset();} reset(){this.x=Math.random();this.y=Math.random();this.vx=(Math.random()-0.5)*0.0008;this.vy=(Math.random()-0.5)*0.0008;this.r=0.3+Math.random()*0.4;this.ci=Math.floor(Math.random()*this.colors.length);this.ni=Math.floor(Math.random()*this.colors.length);this.t=0;this.spd=0.0002+Math.random()*0.0008;} update(dt){this.x+=this.vx*dt;this.y+=this.vy*dt;if(this.x<-0.2){this.x=-0.2;this.vx*=-1;}if(this.x>1.2){this.x=1.2;this.vx*=-1;}if(this.y<-0.2){this.y=-0.2;this.vy*=-1;}if(this.y>1.2){this.y=1.2;this.vy*=-1;}this.t+=dt*this.spd;if(this.t>=1){this.t=0;this.ci=this.ni;this.ni=Math.floor(Math.random()*this.colors.length);this.spd=0.0001+Math.random()*0.001;}} getColor(){const a=this.colors[this.ci],b=this.colors[this.ni],t=this.t;return[Math.round(a[0]+(b[0]-a[0])*t),Math.round(a[1]+(b[1]-a[1])*t),Math.round(a[2]+(b[2]-a[2])*t)];} }
+const enjoyBlobs = Array.from({length:5}, () => new Blob(enjoyColors));
+const endureBlobs = Array.from({length:7}, () => new Blob(endureColors));
+let visAlpha = 0, visLastTs = null;
+function drawVis(ts) { const dt=visLastTs?ts-visLastTs:16;visLastTs=ts;if(holding&&visAlpha<1)visAlpha=Math.min(1,visAlpha+dt*0.003);if(!holding&&visAlpha>0)visAlpha=Math.max(0,visAlpha-dt*0.002);const w=visCanvas.width,h=visCanvas.height;vc.clearRect(0,0,w,h);if(visAlpha>0){const blobs=currentMode==='endure'?endureBlobs:enjoyBlobs;for(const b of blobs)b.update(dt);if(currentMode==='nothing'){vc.fillStyle=`rgba(255,255,255,${visAlpha})`;vc.fillRect(0,0,w,h);}else{vc.fillStyle=currentMode==='endure'?`rgba(20,20,20,${visAlpha})`:`rgba(240,240,240,${visAlpha})`;vc.fillRect(0,0,w,h);for(const b of blobs){const[r,g,bl]=b.getColor();const gx=b.x*w,gy=b.y*h,gr=b.r*Math.max(w,h);const grad=vc.createRadialGradient(gx,gy,0,gx,gy,gr);grad.addColorStop(0,`rgba(${r},${g},${bl},${0.7*visAlpha})`);grad.addColorStop(1,`rgba(${r},${g},${bl},0)`);vc.fillStyle=grad;vc.fillRect(0,0,w,h);}}}requestAnimationFrame(drawVis); }
+requestAnimationFrame(drawVis);
+
+// ══════════════════════════════════════════
+// MAIN BUTTON
+// ══════════════════════════════════════════
+const btn = document.getElementById('btn'); const elapsedEl = document.getElementById('elapsed'); const totalDispEl = document.getElementById('total-disp');
+let holding = false, startTime = null, timerRaf = null, sessionSec = 0;
+let totalSec = parseInt(localStorage.getItem('groma_total') || '0', 10);
+function fmt(s) { const m=Math.floor(s/60),sec=Math.floor(s%60);return m+':'+String(sec).padStart(2,'0'); }
+function renderTotal() { if(totalSec>0){totalDispEl.textContent=fmt(totalSec);totalDispEl.classList.remove('hidden');} }
+function timerTick() { if(!holding)return;sessionSec=(performance.now()-startTime)/1000;elapsedEl.textContent=fmt(sessionSec);timerRaf=requestAnimationFrame(timerTick); }
+function startHold(e) { e.preventDefault();if(holding)return;if(settingsOpen){closeSettings();return;}holding=true;startTime=performance.now();btn.classList.add('held');elapsedEl.classList.remove('idle');elapsedEl.textContent='0:00';timerRaf=requestAnimationFrame(timerTick);startAudio(currentMode);sessionStart(); }
+function endHold() { if(!holding)return;holding=false;btn.classList.remove('held');cancelAnimationFrame(timerRaf);stopAudio();const dur=sessionSec;totalSec+=Math.floor(dur);try{localStorage.setItem('groma_total',String(totalSec));}catch(e){}renderTotal();setTimeout(()=>elapsedEl.classList.add('idle'),1800);sessionEnd(dur); }
+btn.addEventListener('mousedown', startHold); btn.addEventListener('touchstart', startHold, {passive:false});
+window.addEventListener('mouseup', () => { endCorner(); endHold(); }); window.addEventListener('touchend', () => { endCorner(); endHold(); });
+renderTotal();
+
+// ══════════════════════════════════════════
+// COLLECTIVE (GARGANTUA)
+// ══════════════════════════════════════════
+const cvisCanvas = document.getElementById('cvis'); const cc = cvisCanvas.getContext('2d');
+function resizeCvis() { cvisCanvas.width=document.getElementById('collective').offsetWidth;cvisCanvas.height=document.getElementById('collective').offsetHeight; }
+resizeCvis(); window.addEventListener('resize', resizeCvis);
+const CSTARS = Array.from({length:180}, () => ({x:Math.random(),y:Math.random(),r:0.2+Math.random()*0.75,a:0.12+Math.random()*0.58,ph:Math.random()*Math.PI*2,sp:0.002+Math.random()*0.009}));
+const TILT = -0.38;
+class CP { constructor(){this.reset(true);} reset(any){const w=cvisCanvas.width,h=cvisCanvas.height,cx=w*0.5,cy=h*0.5,R=Math.min(w,h)*0.32;const a=Math.random()*Math.PI*2,d=R*(1.5+Math.random()*3.5),cos=Math.cos(TILT),sin=Math.sin(TILT),lx=Math.cos(a)*d,ly=Math.sin(a)*d*0.42;this.x=any?Math.random()*w:cx+lx*cos-ly*sin;this.y=any?Math.random()*h:cy+lx*sin+ly*cos;this.sz=0.3+Math.random()*1.1;this.al=0.08+Math.random()*0.72;this.life=0;this.maxL=160+Math.random()*540;const hue=Math.random()<0.52?26+Math.random()*30:192+Math.random()*68;this.col=`hsl(${hue},${72+Math.random()*28}%,${66+Math.random()*34}%)`;this.tph=Math.random()*Math.PI*2;this.tsp=0.016+Math.random()*0.036;const dx=this.x-cx,dy=this.y-cy;this.ang=Math.atan2(dy,dx);this.dst=Math.sqrt(dx*dx+dy*dy);this.asp=0.0035+Math.random()*0.009;this.isp=0.16+Math.random()*0.52;} update(){const w=cvisCanvas.width,h=cvisCanvas.height,cx=w*0.5,cy=h*0.5,R=Math.min(w,h)*0.32;this.life++;this.tph+=this.tsp;this.ang+=this.asp*(1+Math.max(0,1-this.dst/(R*3)));this.dst-=this.isp*(1+Math.pow(Math.max(0,1-this.dst/R),2)*3);const cos=Math.cos(TILT),sin=Math.sin(TILT),lx=Math.cos(this.ang)*this.dst,ly=Math.sin(this.ang)*this.dst*0.42;this.x=cx+lx*cos-ly*sin;this.y=cy+lx*sin+ly*cos;const fi=Math.min(this.life/45,1),fo=Math.min((this.maxL-this.life)/65,1),pr=Math.max(0,Math.min(1,(this.dst-R*0.1)/R));this.ca=this.al*fi*fo*pr*(0.62+0.38*Math.sin(this.tph));return this.dst>R*0.08&&this.life<this.maxL;} draw(){cc.save();cc.globalAlpha=Math.max(0,this.ca);cc.shadowColor=this.col;cc.shadowBlur=this.sz*5;cc.fillStyle=this.col;cc.beginPath();cc.arc(this.x,this.y,this.sz,0,Math.PI*2);cc.fill();cc.restore();} }
+const cparts = Array.from({length:200}, () => new CP());
+let cLastTs = null;
+function drawCollective(ts) { const dt=cLastTs?Math.min(ts-cLastTs,32):16;cLastTs=ts;const w=cvisCanvas.width,h=cvisCanvas.height;cc.clearRect(0,0,w,h);for(const s of CSTARS){s.ph+=s.sp;cc.globalAlpha=s.a*(0.52+0.48*Math.sin(s.ph));cc.fillStyle='#fff';cc.beginPath();cc.arc(s.x*w,s.y*h,s.r,0,Math.PI*2);cc.fill();}cc.globalAlpha=1;const ox=w*0.5,oy=h*0.52,R=Math.min(w,h)*0.32;cc.save();cc.translate(ox,oy);cc.rotate(TILT);const bg2=cc.createRadialGradient(0,0,R*0.8,0,0,R*3);bg2.addColorStop(0,'rgba(255,130,20,0)');bg2.addColorStop(0.35,'rgba(255,110,15,0.05)');bg2.addColorStop(1,'rgba(0,0,0,0)');cc.fillStyle=bg2;cc.beginPath();cc.arc(0,0,R*3,0,Math.PI*2);cc.fill();for(let l=8;l>=0;l--){const lf=l/8,arcW=R*(2.4-lf*0.2),lift=R*(0.68+lf*0.08),thick=R*(0.055+lf*0.025),alpha=(1-lf)*0.72+0.04;cc.beginPath();for(let i=0;i<=120;i++){const fr=i/120,ang=Math.PI+fr*Math.PI,px=Math.cos(ang)*arcW,py=-lift*Math.sin(fr*Math.PI)+Math.sin(ang)*thick;if(i===0)cc.moveTo(px,py);else cc.lineTo(px,py);}cc.strokeStyle=`rgba(255,${Math.round(195-l*14)},${Math.round(55-l*4)},${alpha})`;cc.lineWidth=thick*2.5;cc.lineCap='round';cc.stroke();}cc.fillStyle='#000';cc.beginPath();cc.arc(0,0,R*1.02,0,Math.PI*2);cc.fill();cc.save();cc.beginPath();cc.rect(-w,-R*0.02,w*2,h);cc.clip();for(let g=6;g>=0;g--){const gf=g/6,grd=cc.createLinearGradient(-R*3,0,R*3,0),a=(1-gf)*0.22;grd.addColorStop(0,'rgba(255,90,10,0)');grd.addColorStop(0.15,`rgba(255,145,28,${a})`);grd.addColorStop(0.5,`rgba(255,245,155,${a*2})`);grd.addColorStop(0.85,`rgba(255,145,28,${a})`);grd.addColorStop(1,'rgba(255,90,10,0)');cc.fillStyle=grd;cc.beginPath();cc.ellipse(0,R*0.07,R*3,R*(0.3-gf*0.015),0,0,Math.PI*2);cc.fill();}for(let l=0;l<16;l++){const lf=l/15,lh=R*(0.025+lf*0.003),br=1-lf*0.55,grd=cc.createLinearGradient(-R*2.6,0,R*2.6,0);grd.addColorStop(0,'rgba(200,70,5,0)');grd.addColorStop(0.5,`rgba(255,${Math.round(252-lf*25)},${Math.round(195-lf*55)},${br})`);grd.addColorStop(1,'rgba(200,70,5,0)');cc.fillStyle=grd;cc.beginPath();cc.ellipse(0,R*0.09+(lf-0.5)*lh,R*2.6,lh*1.3,0,0,Math.PI*2);cc.fill();}cc.restore();cc.strokeStyle='rgba(255,185,65,0.32)';cc.lineWidth=R*0.022;cc.beginPath();cc.arc(0,0,R*1.05,0,Math.PI*2);cc.stroke();const sp=cc.createRadialGradient(-R*0.2,-R*0.2,0,0,0,R);sp.addColorStop(0,'#0d0d14');sp.addColorStop(0.55,'#020204');sp.addColorStop(1,'#000');cc.fillStyle=sp;cc.beginPath();cc.arc(0,0,R,0,Math.PI*2);cc.fill();cc.restore();for(let i=cparts.length-1;i>=0;i--){if(!cparts[i].update())cparts[i].reset(false);cparts[i].draw();}while(cparts.length<200)cparts.push(new CP());requestAnimationFrame(drawCollective); }
+requestAnimationFrame(drawCollective);
+
+function fmtColl(s) { const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=Math.floor(s%60);return h+':'+String(m).padStart(2,'0')+':'+String(sc).padStart(2,'0'); }
+</script>
+</body>
+</html>
