@@ -247,8 +247,8 @@ function subscribeStats() {
   };
   ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
-    if (msg.event === 'UPDATE' && msg.payload && msg.payload.record) {
-      const r = msg.payload.record;
+    if (msg.event === 'postgres_changes' && msg.payload && msg.payload.data && msg.payload.data.record) {
+      const r = msg.payload.data.record;
       updateCollective(r.total_seconds, r.active_count);
     }
   };
