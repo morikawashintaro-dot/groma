@@ -243,7 +243,7 @@ function subscribeStats() {
     `${SUPABASE_URL.replace('https', 'wss')}/realtime/v1/websocket?apikey=${SUPABASE_ANON_KEY}&vsn=1.0.0`
   );
   ws.onopen = () => {
-    ws.send(JSON.stringify({ topic: 'realtime:public:stats', event: 'phx_join', payload: {}, ref: '1' }));
+    ws.send(JSON.stringify({ topic: 'realtime:public:stats', event: 'phx_join', payload: { config: { broadcast: { self: true }, presence: { key: '' }, postgres_changes: [{ event: 'UPDATE', schema: 'public', table: 'stats' }] } }, ref: '1' }));
   };
   ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
@@ -347,7 +347,7 @@ document.getElementById('endure-upload').addEventListener('change', e => { handl
 function pickSound(mode) {
   if (!soundEnabled[mode]) return { key: 'silent' };
   const builtIn = Object.entries(soundEnabled[mode]).filter(([,v]) => v).map(([k]) => ({ key: k }));
-  const user = userTracks[mode] ? userTracks[mode].filter(t => t.enabled).map(t => ({ key: '__user__', track: t })) : [];
+  const user = userTracks[mode].filter(t => t.enabled).map(t => ({ key: '__user__', track: t }));
   const all = [...builtIn, ...user];
   if (!all.length) return { key: 'silent' };
   return all[Math.floor(Math.random() * all.length)];
