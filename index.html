@@ -239,21 +239,80 @@ function updateCollective(totalSec, activeCount) {
 
 // Realtimeで stats テーブルを購読
 function subscribeStats() {
+  const topic = 'realtime:public:stats';
+  let ref = 0;
+  let heartbeatTimer = null;
+  const nextRef = () => String(++ref);
+
   const ws = new WebSocket(
-    `${SUPABASE_URL.replace('https', 'wss')}/realtime/v1/websocket?apikey=${SUPABASE_ANON_KEY}&vsn=1.0.0`
+    `${SUPABASE_URL.replace(/^http/, 'ws')}/realtime/v1/websocket?apikey=${encodeURIComponent(SUPABASE_ANON_KEY)}&vsn=1.0.0`
   );
-  ws.onopen = () => {
-    ws.send(JSON.stringify({ topic: 'realtime:public:stats', event: 'phx_join', payload: { config: { broadcast: { self: true }, presence: { key: '' }, postgres_changes: [{ event: 'UPDATE', schema: 'public', table: 'stats' }] } }, ref: '1' }));
-  };
-  ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-    if (msg.event === 'postgres_changes' && msg.payload && msg.payload.data && msg.payload.data.record) {
-      const r = msg.payload.data.record;
-      updateCollective(r.total_seconds, r.active_count);
+
+  const send = (message) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(message));
     }
   };
-  ws.onclose = () => setTimeout(subscribeStats, 3000);
+
+  ws.onopen = () => {
+    const joinRef = nextRef();
+
+    send({
+      topic,
+      event: 'phx_join',
+      payload: {
+        config: {
+          broadcast: { ack: false, self: false },
+          presence: { enabled: false },
+          postgres_changes: [
+            { event: 'UPDATE', schema: 'public', table: 'stats' }
+          ],
+          private: false
+        },
+        access_token: SUPABASE_ANON_KEY
+      },
+      ref: joinRef,
+      join_ref: joinRef
+    });
+
+    heartbeatTimer = setInterval(() => {
+      send({
+        topic: 'phoenix',
+        event: 'heartbeat',
+        payload: {},
+        ref: nextRef()
+      });
+    }, 25000);
+  };
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    const data = msg.payload && msg.payload.data;
+    const record = data && data.record;
+
+    if (
+      msg.event === 'postgres_changes' &&
+      data &&
+      data.schema === 'public' &&
+      data.table === 'stats' &&
+      data.type === 'UPDATE' &&
+      record
+    ) {
+      updateCollective(record.total_seconds, record.active_count);
+    }
+  };
+
+  ws.onclose = () => {
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    setTimeout(subscribeStats, 3000);
+  };
+
+  ws.onerror = (err) => {
+    console.error('Supabase Realtime WebSocket error:', err);
+  };
 }
+
+ 
 subscribeStats();
 fetchStats();
 
