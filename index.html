@@ -331,7 +331,7 @@ document.getElementById('endure-upload').addEventListener('change', e => { handl
 function pickSound(mode) {
   if (!soundEnabled[mode]) return { key: 'silent' };
   const builtIn = Object.entries(soundEnabled[mode]).filter(([,v]) => v).map(([k]) => ({ key: k }));
-  const user = userTracks[mode].filter(t => t.enabled).map(t => ({ key: '__user__', track: t }));
+  const user = userTracks[mode] ? userTracks[mode].filter(t => t.enabled).map(t => ({ key: '__user__', track: t })) : [];
   const all = [...builtIn, ...user];
   if (!all.length) return { key: 'silent' };
   return all[Math.floor(Math.random() * all.length)];
