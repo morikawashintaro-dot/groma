@@ -133,6 +133,9 @@ input[type=file] { display: none; }
     </div>
     <div class="mode-section">
       <div class="mode-title">nothing</div>
+      <div class="snd-opt" data-mode="nothing" data-sound="silent"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">silent</span></div><span class="snd-tag">random</span></div>
+        <div class="snd-opt" data-mode="nothing" data-sound="white"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">white noise</span></div><span class="snd-tag">random</span></div>
+        <div class="snd-opt" data-mode="nothing" data-sound="brown"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">brown noise</span></div><span class="snd-tag">random</span></div>
       
     </div>
     <div class="mode-section">
@@ -303,7 +306,7 @@ function endCorner() { if (!cornerHeld) return; cornerHeld = false; cornerTrigge
 // ══════════════════════════════════════════
 // AUDIO
 // ══════════════════════════════════════════
-const soundEnabled = { enjoy: { lofi:true, rain:true, wave:true, wind:true }, nothing: { silent:true, white:true, brown:true }, endure: { highfreq:true, irregular:true, dissonance:true } };
+const soundEnabled = { enjoy: { lofi:true, rain:true, wave:true, wind:true },nothing: { silent:true, white:false, brown:false }, endure: { highfreq:true, irregular:true, dissonance:true } };
 document.querySelectorAll('.snd-opt').forEach(opt => { opt.addEventListener('click', () => { const m = opt.dataset.mode, s = opt.dataset.sound; soundEnabled[m][s] = !soundEnabled[m][s]; opt.querySelector('.snd-check').classList.toggle('on', soundEnabled[m][s]); }); });
 
 const userTracks = { enjoy: [], endure: [] };
