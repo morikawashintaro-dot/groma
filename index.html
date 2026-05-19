@@ -4,8 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>groma</title>
-  
-  <link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#ffffff">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -134,9 +133,8 @@ input[type=file] { display: none; }
     <div class="mode-section">
       <div class="mode-title">nothing</div>
       <div class="snd-opt" data-mode="nothing" data-sound="silent"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">silent</span></div><span class="snd-tag">random</span></div>
-        <div class="snd-opt" data-mode="nothing" data-sound="white"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">white noise</span></div><span class="snd-tag">random</span></div>
-        <div class="snd-opt" data-mode="nothing" data-sound="brown"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">brown noise</span></div><span class="snd-tag">random</span></div>
-      
+      <div class="snd-opt" data-mode="nothing" data-sound="white"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">white noise</span></div><span class="snd-tag">random</span></div>
+      <div class="snd-opt" data-mode="nothing" data-sound="brown"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">brown noise</span></div><span class="snd-tag">random</span></div>
     </div>
     <div class="mode-section">
       <div class="mode-title">endure</div>
@@ -306,7 +304,7 @@ function endCorner() { if (!cornerHeld) return; cornerHeld = false; cornerTrigge
 // ══════════════════════════════════════════
 // AUDIO
 // ══════════════════════════════════════════
-const soundEnabled = { enjoy: { lofi:true, rain:true, wave:true, wind:true },nothing: { silent:true, white:false, brown:false }, endure: { highfreq:true, irregular:true, dissonance:true } };
+const soundEnabled = { enjoy: { lofi:true, rain:true, wave:true, wind:true }, nothing: { silent:true, white:true, brown:true }, endure: { highfreq:true, irregular:true, dissonance:true } };
 document.querySelectorAll('.snd-opt').forEach(opt => { opt.addEventListener('click', () => { const m = opt.dataset.mode, s = opt.dataset.sound; soundEnabled[m][s] = !soundEnabled[m][s]; opt.querySelector('.snd-check').classList.toggle('on', soundEnabled[m][s]); }); });
 
 const userTracks = { enjoy: [], endure: [] };
@@ -425,12 +423,79 @@ renderTotal();
 const cvisCanvas = document.getElementById('cvis'); const cc = cvisCanvas.getContext('2d');
 function resizeCvis() { cvisCanvas.width=document.getElementById('collective').offsetWidth;cvisCanvas.height=document.getElementById('collective').offsetHeight; }
 resizeCvis(); window.addEventListener('resize', resizeCvis);
-const CSTARS = Array.from({length:180}, () => ({x:Math.random(),y:Math.random(),r:0.2+Math.random()*0.75,a:0.12+Math.random()*0.58,ph:Math.random()*Math.PI*2,sp:0.002+Math.random()*0.009}));
-const TILT = -0.38;
-class CP { constructor(){this.reset(true);} reset(any){const w=cvisCanvas.width,h=cvisCanvas.height,cx=w*0.5,cy=h*0.5,R=Math.min(w,h)*0.32;const a=Math.random()*Math.PI*2,d=R*(1.5+Math.random()*3.5),cos=Math.cos(TILT),sin=Math.sin(TILT),lx=Math.cos(a)*d,ly=Math.sin(a)*d*0.42;this.x=any?Math.random()*w:cx+lx*cos-ly*sin;this.y=any?Math.random()*h:cy+lx*sin+ly*cos;this.sz=0.3+Math.random()*1.1;this.al=0.08+Math.random()*0.72;this.life=0;this.maxL=160+Math.random()*540;const hue=Math.random()<0.52?26+Math.random()*30:192+Math.random()*68;this.col=`hsl(${hue},${72+Math.random()*28}%,${66+Math.random()*34}%)`;this.tph=Math.random()*Math.PI*2;this.tsp=0.016+Math.random()*0.036;const dx=this.x-cx,dy=this.y-cy;this.ang=Math.atan2(dy,dx);this.dst=Math.sqrt(dx*dx+dy*dy);this.asp=0.0035+Math.random()*0.009;this.isp=0.16+Math.random()*0.52;} update(){const w=cvisCanvas.width,h=cvisCanvas.height,cx=w*0.5,cy=h*0.5,R=Math.min(w,h)*0.32;this.life++;this.tph+=this.tsp;this.ang+=this.asp*(1+Math.max(0,1-this.dst/(R*3)));this.dst-=this.isp*(1+Math.pow(Math.max(0,1-this.dst/R),2)*3);const cos=Math.cos(TILT),sin=Math.sin(TILT),lx=Math.cos(this.ang)*this.dst,ly=Math.sin(this.ang)*this.dst*0.42;this.x=cx+lx*cos-ly*sin;this.y=cy+lx*sin+ly*cos;const fi=Math.min(this.life/45,1),fo=Math.min((this.maxL-this.life)/65,1),pr=Math.max(0,Math.min(1,(this.dst-R*0.1)/R));this.ca=this.al*fi*fo*pr*(0.62+0.38*Math.sin(this.tph));return this.dst>R*0.08&&this.life<this.maxL;} draw(){cc.save();cc.globalAlpha=Math.max(0,this.ca);cc.shadowColor=this.col;cc.shadowBlur=this.sz*5;cc.fillStyle=this.col;cc.beginPath();cc.arc(this.x,this.y,this.sz,0,Math.PI*2);cc.fill();cc.restore();} }
-const cparts = Array.from({length:200}, () => new CP());
+
+// bg.jpg を読み込む
+const bgImg = new Image();
+bgImg.src = '/bg.jpg';
+
+// ブラックホールの中心位置（画像内のブラックホールに合わせた相対位置）
+const BH_CX = 0.62, BH_CY = 0.52;
+
+class CP {
+  constructor(){this.reset(true);}
+  reset(any){
+    const w=cvisCanvas.width,h=cvisCanvas.height;
+    const cx=w*BH_CX, cy=h*BH_CY;
+    const R=Math.min(w,h)*0.18;
+    const a=Math.random()*Math.PI*2, d=R*(1.2+Math.random()*3.0);
+    this.x=any?Math.random()*w:cx+Math.cos(a)*d;
+    this.y=any?Math.random()*h:cy+Math.sin(a)*d*0.5;
+    this.sz=0.3+Math.random()*1.2;
+    this.al=0.1+Math.random()*0.7;
+    this.life=0;
+    this.maxL=120+Math.random()*400;
+    const hue=Math.random()<0.5?20+Math.random()*20:0+Math.random()*15;
+    this.col=`hsl(${hue},${20+Math.random()*30}%,${85+Math.random()*15}%)`;
+    this.tph=Math.random()*Math.PI*2;
+    this.tsp=0.015+Math.random()*0.03;
+    const dx=this.x-cx, dy=this.y-cy;
+    this.ang=Math.atan2(dy,dx);
+    this.dst=Math.sqrt(dx*dx+dy*dy);
+    this.asp=0.004+Math.random()*0.009;
+    this.isp=0.15+Math.random()*0.45;
+  }
+  update(){
+    const w=cvisCanvas.width,h=cvisCanvas.height;
+    const cx=w*BH_CX, cy=h*BH_CY;
+    const R=Math.min(w,h)*0.18;
+    this.life++;
+    this.tph+=this.tsp;
+    this.ang+=this.asp*(1+Math.max(0,1-this.dst/(R*3)));
+    this.dst-=this.isp*(1+Math.pow(Math.max(0,1-this.dst/R),2)*3);
+    this.x=cx+Math.cos(this.ang)*this.dst;
+    this.y=cy+Math.sin(this.ang)*this.dst*0.5;
+    const fi=Math.min(this.life/40,1),fo=Math.min((this.maxL-this.life)/50,1),pr=Math.max(0,Math.min(1,(this.dst-R*0.1)/R));
+    this.ca=this.al*fi*fo*pr*(0.6+0.4*Math.sin(this.tph));
+    return this.dst>R*0.1&&this.life<this.maxL;
+  }
+  draw(){
+    cc.save();cc.globalAlpha=Math.max(0,this.ca);
+    cc.shadowColor=this.col;cc.shadowBlur=this.sz*3;
+    cc.fillStyle=this.col;cc.beginPath();cc.arc(this.x,this.y,this.sz,0,Math.PI*2);cc.fill();
+    cc.restore();
+  }
+}
+const cparts = Array.from({length:150}, () => new CP());
 let cLastTs = null;
-function drawCollective(ts) { const dt=cLastTs?Math.min(ts-cLastTs,32):16;cLastTs=ts;const w=cvisCanvas.width,h=cvisCanvas.height;cc.clearRect(0,0,w,h);for(const s of CSTARS){s.ph+=s.sp;cc.globalAlpha=s.a*(0.52+0.48*Math.sin(s.ph));cc.fillStyle='#fff';cc.beginPath();cc.arc(s.x*w,s.y*h,s.r,0,Math.PI*2);cc.fill();}cc.globalAlpha=1;const ox=w*0.5,oy=h*0.52,R=Math.min(w,h)*0.32;cc.save();cc.translate(ox,oy);cc.rotate(TILT);const bg2=cc.createRadialGradient(0,0,R*0.8,0,0,R*3);bg2.addColorStop(0,'rgba(255,130,20,0)');bg2.addColorStop(0.35,'rgba(255,110,15,0.05)');bg2.addColorStop(1,'rgba(0,0,0,0)');cc.fillStyle=bg2;cc.beginPath();cc.arc(0,0,R*3,0,Math.PI*2);cc.fill();for(let l=8;l>=0;l--){const lf=l/8,arcW=R*(2.4-lf*0.2),lift=R*(0.68+lf*0.08),thick=R*(0.055+lf*0.025),alpha=(1-lf)*0.72+0.04;cc.beginPath();for(let i=0;i<=120;i++){const fr=i/120,ang=Math.PI+fr*Math.PI,px=Math.cos(ang)*arcW,py=-lift*Math.sin(fr*Math.PI)+Math.sin(ang)*thick;if(i===0)cc.moveTo(px,py);else cc.lineTo(px,py);}cc.strokeStyle=`rgba(255,${Math.round(195-l*14)},${Math.round(55-l*4)},${alpha})`;cc.lineWidth=thick*2.5;cc.lineCap='round';cc.stroke();}cc.fillStyle='#000';cc.beginPath();cc.arc(0,0,R*1.02,0,Math.PI*2);cc.fill();cc.save();cc.beginPath();cc.rect(-w,-R*0.02,w*2,h);cc.clip();for(let g=6;g>=0;g--){const gf=g/6,grd=cc.createLinearGradient(-R*3,0,R*3,0),a=(1-gf)*0.22;grd.addColorStop(0,'rgba(255,90,10,0)');grd.addColorStop(0.15,`rgba(255,145,28,${a})`);grd.addColorStop(0.5,`rgba(255,245,155,${a*2})`);grd.addColorStop(0.85,`rgba(255,145,28,${a})`);grd.addColorStop(1,'rgba(255,90,10,0)');cc.fillStyle=grd;cc.beginPath();cc.ellipse(0,R*0.07,R*3,R*(0.3-gf*0.015),0,0,Math.PI*2);cc.fill();}for(let l=0;l<16;l++){const lf=l/15,lh=R*(0.025+lf*0.003),br=1-lf*0.55,grd=cc.createLinearGradient(-R*2.6,0,R*2.6,0);grd.addColorStop(0,'rgba(200,70,5,0)');grd.addColorStop(0.5,`rgba(255,${Math.round(252-lf*25)},${Math.round(195-lf*55)},${br})`);grd.addColorStop(1,'rgba(200,70,5,0)');cc.fillStyle=grd;cc.beginPath();cc.ellipse(0,R*0.09+(lf-0.5)*lh,R*2.6,lh*1.3,0,0,Math.PI*2);cc.fill();}cc.restore();cc.strokeStyle='rgba(255,185,65,0.32)';cc.lineWidth=R*0.022;cc.beginPath();cc.arc(0,0,R*1.05,0,Math.PI*2);cc.stroke();const sp=cc.createRadialGradient(-R*0.2,-R*0.2,0,0,0,R);sp.addColorStop(0,'#0d0d14');sp.addColorStop(0.55,'#020204');sp.addColorStop(1,'#000');cc.fillStyle=sp;cc.beginPath();cc.arc(0,0,R,0,Math.PI*2);cc.fill();cc.restore();for(let i=cparts.length-1;i>=0;i--){if(!cparts[i].update())cparts[i].reset(false);cparts[i].draw();}while(cparts.length<200)cparts.push(new CP());requestAnimationFrame(drawCollective); }
+function drawCollective(ts) {
+  cLastTs=ts;
+  const w=cvisCanvas.width,h=cvisCanvas.height;
+  cc.clearRect(0,0,w,h);
+  // bg.jpg を背景として描画（cover相当）
+  if(bgImg.complete && bgImg.naturalWidth>0){
+    const iw=bgImg.naturalWidth,ih=bgImg.naturalHeight;
+    const scale=Math.max(w/iw,h/ih);
+    const dw=iw*scale,dh=ih*scale;
+    const dx=(w-dw)/2,dy=(h-dh)/2;
+    cc.drawImage(bgImg,dx,dy,dw,dh);
+  } else {
+    cc.fillStyle='#c0301a';cc.fillRect(0,0,w,h);
+  }
+  // パーティクル
+  for(let i=cparts.length-1;i>=0;i--){if(!cparts[i].update())cparts[i].reset(false);cparts[i].draw();}
+  while(cparts.length<150)cparts.push(new CP());
+  requestAnimationFrame(drawCollective);
+}
 requestAnimationFrame(drawCollective);
 
 function fmtColl(s) { const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=Math.floor(s%60);return h+':'+String(m).padStart(2,'0')+':'+String(sc).padStart(2,'0'); }
