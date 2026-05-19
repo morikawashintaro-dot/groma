@@ -304,7 +304,7 @@ function endCorner() { if (!cornerHeld) return; cornerHeld = false; cornerTrigge
 // ══════════════════════════════════════════
 // AUDIO
 // ══════════════════════════════════════════
-const soundEnabled = { enjoy: { lofi:true, rain:true, wave:true, wind:true }, nothing: { silent:true, white:true, brown:true }, endure: { highfreq:true, irregular:true, dissonance:true } };
+const soundEnabled = { enjoy: { lofi:true, rain:true, wave:true, wind:true }, nothing: { silent:true, white:false, brown:false }, endure: { highfreq:true, irregular:true, dissonance:true } };
 document.querySelectorAll('.snd-opt').forEach(opt => { opt.addEventListener('click', () => { const m = opt.dataset.mode, s = opt.dataset.sound; soundEnabled[m][s] = !soundEnabled[m][s]; opt.querySelector('.snd-check').classList.toggle('on', soundEnabled[m][s]); }); });
 
 const userTracks = { enjoy: [], endure: [] };
