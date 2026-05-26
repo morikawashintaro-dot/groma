@@ -419,7 +419,16 @@ renderTotal();
 // COLLECTIVE (GARGANTUA)
 // ══════════════════════════════════════════
 const cvisCanvas = document.getElementById('cvis'); const cc = cvisCanvas.getContext('2d');
-function resizeCvis() { cvisCanvas.width=document.getElementById('collective').offsetWidth;cvisCanvas.height=document.getElementById('collective').offsetHeight; }
+function resizeCvis() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = document.getElementById('collective').offsetWidth;
+  const h = document.getElementById('collective').offsetHeight;
+  cvisCanvas.width = w * dpr;
+  cvisCanvas.height = h * dpr;
+  cvisCanvas.style.width = w + 'px';
+  cvisCanvas.style.height = h + 'px';
+  cc.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
 resizeCvis(); window.addEventListener('resize', resizeCvis);
 
 // bg.jpg を読み込む
