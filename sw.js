@@ -1,4 +1,4 @@
-const CACHE = 'groma-v12';
+const CACHE = 'groma-v13';
 const ASSETS = ['/', '/index.html', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', e => {
