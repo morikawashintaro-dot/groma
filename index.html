@@ -24,7 +24,7 @@ body { background: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Helvet
 .screen { position: absolute; inset: 0; transition: transform 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.35s; overflow: hidden; }
 .screen.off-right { transform: translateX(100%); opacity: 0; pointer-events: none; }
 
-/* 笏笏 MAIN 笏笏 */
+/* -- MAIN -- */
 #main { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; }
 canvas.vis { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
 #btn { width: 120px; height: 120px; border-radius: 50%; border: 0.5px solid rgba(0,0,0,0.18); background: transparent; cursor: pointer; outline: none; transition: transform 0.08s; position: relative; z-index: 1; -webkit-tap-highlight-color: transparent; }
@@ -59,7 +59,7 @@ canvas.vis { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0
 .forced-label { font-size: 13px; font-family: 'Courier New', monospace; color: #555; }
 .forced-badge { font-size: 10px; font-family: 'Courier New', monospace; color: #bbb; letter-spacing: 0.04em; }
 
-/* 笏笏 SOUND 笏笏 */
+/* -- SOUND -- */
 #sound-screen { background: #fff; display: flex; flex-direction: column; overflow-y: auto; }
 .sound-header { display: flex; align-items: center; gap: 12px; padding: 20px 20px 16px; border-bottom: 0.5px solid rgba(0,0,0,0.08); flex-shrink: 0; }
 .back-btn { background: none; border: none; cursor: pointer; font-size: 16px; font-family: 'Courier New', monospace; color: #555; outline: none; line-height: 1; }
@@ -81,7 +81,7 @@ canvas.vis { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0
 .upload-label { font-size: 13px; font-family: 'Courier New', monospace; color: #555; }
 input[type=file] { display: none; }
 
-/* 笏笏 COLLECTIVE 笏笏 */
+/* -- COLLECTIVE -- */
 #collective { background: #000; display: flex; align-items: center; justify-content: center; }
 #collective canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
 .coll-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 44px; margin-top: 40px; }
@@ -102,7 +102,7 @@ input[type=file] { display: none; }
       <span id="elapsed" class="idle">0:00</span>
       <span id="total-disp" class="hidden"></span>
     </div>
-    <button id="collective-link">竏・/button>
+    <button id="collective-link">∞</button>
     <div id="corner-trigger"><div id="corner-dot"></div></div>
     <svg id="progress-ring" viewBox="0 0 56 56"><circle id="progress-circle" cx="28" cy="28" r="24"/></svg>
     <div id="settings-panel">
@@ -112,14 +112,14 @@ input[type=file] { display: none; }
       <div class="opt-row" data-mode="endure"><span class="opt-label">endure</span><div class="opt-dot"></div></div>
       <div class="opt-row" data-mode="random"><span class="opt-label">random</span><div class="opt-dot"></div></div>
       <div class="s-divider"></div>
-      <div class="sound-link-row" id="sound-link"><span class="sound-link-label">sound</span><span class="arrow">窶ｺ</span></div>
+      <div class="sound-link-row" id="sound-link"><span class="sound-link-label">sound</span><span class="arrow">›</span></div>
       <div class="s-divider"></div>
       <div class="forced-row"><span class="forced-label">forced</span><span class="forced-badge">tbd</span></div>
     </div>
   </div>
 
   <div id="sound-screen" class="screen off-right">
-    <div class="sound-header"><button class="back-btn" id="sound-back">窶ｹ</button><span class="screen-title">sound</span></div>
+    <div class="sound-header"><button class="back-btn" id="sound-back">‹</button><span class="screen-title">sound</span></div>
     <div class="mode-section">
       <div class="mode-title">enjoy</div>
       <div class="snd-opt" data-mode="enjoy" data-sound="lofi"><div class="snd-left"><div class="snd-check on"></div><span class="snd-name">lofi</span></div><span class="snd-tag">random</span></div>
@@ -153,13 +153,13 @@ input[type=file] { display: none; }
     </div>
   </div>
 </div>
-<button id="coll-back">窶ｹ back</button>
+<button id="coll-back">‹ back</button>
 
 <script>
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 // SUPABASE CONFIG
-// 縺薙％縺ｫ閾ｪ蛻・・Supabase縺ｮURL縺ｨanon key繧貞・繧後ｋ
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// Set your Supabase URL and anon key here.
+// ==========================================
 const SUPABASE_URL = 'https://kjxnqryshvspzkymuarn.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqeG5xcnlzaHZzcHpreW11YXJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5MTA0MjQsImV4cCI6MjA5MjQ4NjQyNH0.LCXZke0ZyjycquuqKxamRgEP55zXgQO1j7viBM5HfyA';
 
@@ -240,9 +240,9 @@ setInterval(fetchStats, 10000);
 fetchStats();
 
 
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 // NAV
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 const collBack = document.getElementById('coll-back');
 function goTo(name) {
   document.getElementById('main').classList.toggle('off-right', name !== 'main');
@@ -256,9 +256,9 @@ document.getElementById('sound-back').addEventListener('click', goBack);
 document.getElementById('collective-link').addEventListener('click', () => { goTo('collective'); fetchStats(); });
 collBack.addEventListener('click', goBack);
 
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 // SETTINGS
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 const settingsPanel = document.getElementById('settings-panel');
 let settingsOpen = false;
 function openSettings() { settingsOpen = true; settingsPanel.classList.add('visible'); }
@@ -275,9 +275,9 @@ document.querySelectorAll('.opt-row').forEach(row => {
 });
 document.addEventListener('click', e => { if (settingsOpen && !settingsPanel.contains(e.target) && !document.getElementById('corner-trigger').contains(e.target)) closeSettings(); });
 
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 // CORNER LONG PRESS
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 const cornerTrigger = document.getElementById('corner-trigger');
 const progressCircle = document.getElementById('progress-circle');
 const CIRC = 150.8, HOLD_MS = 1200;
@@ -287,9 +287,9 @@ cornerTrigger.addEventListener('mousedown', e => { e.stopPropagation(); if (sett
 cornerTrigger.addEventListener('touchstart', e => { e.preventDefault(); e.stopPropagation(); if (settingsOpen) { closeSettings(); return; } cornerHeld = true; cornerStart = performance.now(); cornerTrigger.classList.add('pressing'); cornerRaf = requestAnimationFrame(cornerTick); }, { passive: false });
 function endCorner() { if (!cornerHeld) return; cornerHeld = false; cornerTrigger.classList.remove('pressing'); cancelAnimationFrame(cornerRaf); progressCircle.style.strokeDashoffset = CIRC; }
 
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 // AUDIO
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 const soundEnabled = { enjoy: { lofi:true, rain:true, wave:true, wind:true }, nothing: { silent:true }, endure: { highfreq:true, irregular:true, dissonance:true } };
 document.querySelectorAll('.snd-opt').forEach(opt => { opt.addEventListener('click', () => { const m = opt.dataset.mode, s = opt.dataset.sound; soundEnabled[m][s] = !soundEnabled[m][s]; opt.querySelector('.snd-check').classList.toggle('on', soundEnabled[m][s]); }); });
 
@@ -300,7 +300,7 @@ function renderUserTracks(mode) {
   userTracks[mode].forEach((track, i) => {
     const row = document.createElement('div');
     row.className = 'snd-opt';
-    row.innerHTML = `<div class="snd-left"><div class="snd-check${track.enabled?' on':''}"></div><span class="snd-name">${track.name}</span></div><div style="display:flex;align-items:center;gap:4px;"><span class="snd-tag">upload</span><button class="snd-remove">ﾃ・/button></div>`;
+    row.innerHTML = `<div class="snd-left"><div class="snd-check${track.enabled?' on':''}"></div><span class="snd-name">${track.name}</span></div><div style="display:flex;align-items:center;gap:4px;"><span class="snd-tag">upload</span><button class="snd-remove">×</button></div>`;
     row.querySelector('.snd-left').addEventListener('click', () => { track.enabled = !track.enabled; renderUserTracks(mode); });
     row.querySelector('.snd-remove').addEventListener('click', e => { e.stopPropagation(); userTracks[mode].splice(i, 1); renderUserTracks(mode); });
     container.appendChild(row);
@@ -373,9 +373,9 @@ function playSound(sound) {
   } else if (sound==='dissonance') { [220,233,311,329,415].forEach((f,i)=>{const osc=ctx.createOscillator();osc.type=i%2===0?'sawtooth':'square';osc.frequency.value=f;const g=ctx.createGain();g.gain.value=0.02;const lfo=ctx.createOscillator();lfo.frequency.value=0.05+i*0.03;const lg=ctx.createGain();lg.gain.value=f*0.015;lfo.connect(lg);lg.connect(osc.frequency);osc.connect(g);g.connect(ctx.destination);osc.start();lfo.start();audioNodes.push(osc,g,lfo,lg);}); }
 }
 
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 // VISUAL
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 const visCanvas = document.getElementById('vis'); const vc = visCanvas.getContext('2d');
 function resizeVis() { visCanvas.width = document.getElementById('main').offsetWidth; visCanvas.height = document.getElementById('main').offsetHeight; }
 resizeVis(); window.addEventListener('resize', resizeVis);
@@ -388,9 +388,9 @@ let visAlpha = 0, visLastTs = null;
 function drawVis(ts) { const dt=visLastTs?ts-visLastTs:16;visLastTs=ts;if(holding&&visAlpha<1)visAlpha=Math.min(1,visAlpha+dt*0.003);if(!holding&&visAlpha>0)visAlpha=Math.max(0,visAlpha-dt*0.002);const w=visCanvas.width,h=visCanvas.height;vc.clearRect(0,0,w,h);if(visAlpha>0){const blobs=currentMode==='endure'?endureBlobs:enjoyBlobs;for(const b of blobs)b.update(dt);if(currentMode==='nothing'){vc.fillStyle=`rgba(255,255,255,${visAlpha})`;vc.fillRect(0,0,w,h);}else{vc.fillStyle=currentMode==='endure'?`rgba(20,20,20,${visAlpha})`:`rgba(240,240,240,${visAlpha})`;vc.fillRect(0,0,w,h);for(const b of blobs){const[r,g,bl]=b.getColor();const gx=b.x*w,gy=b.y*h,gr=b.r*Math.max(w,h);const grad=vc.createRadialGradient(gx,gy,0,gx,gy,gr);grad.addColorStop(0,`rgba(${r},${g},${bl},${0.7*visAlpha})`);grad.addColorStop(1,`rgba(${r},${g},${bl},0)`);vc.fillStyle=grad;vc.fillRect(0,0,w,h);}}}requestAnimationFrame(drawVis); }
 requestAnimationFrame(drawVis);
 
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 // MAIN BUTTON
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 const btn = document.getElementById('btn'); const elapsedEl = document.getElementById('elapsed'); const totalDispEl = document.getElementById('total-disp');
 let holding = false, startTime = null, timerRaf = null, sessionSec = 0;
 let totalSec = parseInt(localStorage.getItem('groma_total') || '0', 10);
@@ -403,9 +403,9 @@ btn.addEventListener('mousedown', startHold); btn.addEventListener('touchstart',
 window.addEventListener('mouseup', () => { endCorner(); endHold(); }); window.addEventListener('touchend', () => { endCorner(); endHold(); });
 renderTotal();
 
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 // COLLECTIVE (GARGANTUA)
-// 笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武笊絶武
+// ==========================================
 const cvisCanvas = document.getElementById('cvis'); const cc = cvisCanvas.getContext('2d');
 function resizeCvis() {
   const dpr = window.devicePixelRatio || 1;
