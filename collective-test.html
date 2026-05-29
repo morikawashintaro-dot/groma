@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>collective black hole test</title>
   <style>
-    html, body {
+    html,
+    body {
       width: 100%;
       height: 100%;
       margin: 0;
@@ -19,55 +20,73 @@
       height: 100vh;
       background: #000;
     }
+
+    .error {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      color: #f8f2e8;
+      background: #000;
+      font: 15px/1.5 system-ui, sans-serif;
+      text-align: center;
+      padding: 24px;
+    }
   </style>
 </head>
 <body>
-  <script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js';
+  <canvas id="black-hole"></canvas>
+  <div class="error" id="webgl-error">WebGL is required to view this visualization.</div>
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
+  <script>
+    const canvas = document.getElementById('black-hole');
+    const error = document.getElementById('webgl-error');
+    const gl = canvas.getContext('webgl', {
       alpha: false,
+      antialias: false,
+      depth: false,
       powerPreference: 'high-performance',
-    });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setClearColor(0x000000, 1);
-    document.body.appendChild(renderer.domElement);
+      preserveDrawingBuffer: false,
+      stencil: false,
+    }) || canvas.getContext('experimental-webgl');
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    if (!gl) {
+      error.style.display = 'grid';
+      throw new Error('WebGL is not available');
+    }
 
-    const uniforms = {
-      uTime: { value: 0 },
-      uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-      uCenter: { value: new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2) },
-      uPixelRatio: { value: renderer.getPixelRatio() },
-    };
-
-    const vertexShader = `
+    const vertexSource = `
+      attribute vec2 aPosition;
       varying vec2 vUv;
 
       void main() {
-        vUv = uv;
-        gl_Position = vec4(position.xy, 0.0, 1.0);
+        vUv = aPosition * 0.5 + 0.5;
+        gl_Position = vec4(aPosition, 0.0, 1.0);
       }
     `;
 
-    const fragmentShader = `
+    const fragmentSource = `
+      #ifdef GL_FRAGMENT_PRECISION_HIGH
       precision highp float;
+      #else
+      precision mediump float;
+      #endif
 
-      uniform float uTime;
       uniform vec2 uResolution;
-      uniform vec2 uCenter;
+      uniform float uTime;
       varying vec2 vUv;
 
-      #define PI 3.141592653589793
-      const float DISK_TILT = 0.22;
+      const float PI = 3.141592653589793;
+      const float EVENT_RADIUS = 0.145;
+      const float DISK_TILT = 0.245;
 
-      mat2 rot(float a) {
-        float s = sin(a);
-        float c = cos(a);
+      float saturate(float value) {
+        return clamp(value, 0.0, 1.0);
+      }
+
+      mat2 rotate2d(float angle) {
+        float s = sin(angle);
+        float c = cos(angle);
         return mat2(c, -s, s, c);
       }
 
@@ -80,319 +99,232 @@
       float noise(vec2 p) {
         vec2 i = floor(p);
         vec2 f = fract(p);
-        f = f * f * (3.0 - 2.0 * f);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+
         float a = hash(i);
         float b = hash(i + vec2(1.0, 0.0));
         float c = hash(i + vec2(0.0, 1.0));
         float d = hash(i + vec2(1.0, 1.0));
-        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+
+        return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
       }
 
       float fbm(vec2 p) {
         float v = 0.0;
         float a = 0.5;
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 5; i++) {
           v += a * noise(p);
-          p = rot(0.72) * p * 2.03 + vec2(9.1, 4.7);
+          p = rotate2d(0.72) * p * 2.03 + vec2(13.7, 8.1);
           a *= 0.5;
         }
         return v;
       }
 
-      float ridge(float x, float width) {
-        return exp(-x * x / max(width, 0.0001));
+      vec2 lensWarp(vec2 p) {
+        float d = max(length(p), 0.0001);
+        vec2 dir = p / d;
+        float deflection = EVENT_RADIUS / max(d * d, 0.018);
+        float nearField = 1.0 - smoothstep(EVENT_RADIUS * 1.05, 1.12, d);
+        return p + dir * deflection * 0.021 * nearField;
       }
 
-      vec2 centeredPosition(vec2 fragCoord) {
-        return (fragCoord - uCenter) / min(uResolution.x, uResolution.y);
+      float sparseStars(vec2 p) {
+        vec2 uv = p * vec2(uResolution.x / uResolution.y, 1.0);
+        vec2 cell = floor(uv * 84.0);
+        vec2 local = fract(uv * 84.0);
+        float starSeed = hash(cell);
+        vec2 starPos = vec2(hash(cell + 2.31), hash(cell + 7.83));
+        float dotShape = smoothstep(0.045, 0.0, length(local - starPos));
+        float sparse = step(0.986, starSeed);
+        float twinkle = 0.72 + 0.28 * sin(uTime * (1.4 + starSeed * 3.0) + starSeed * 20.0);
+        return dotShape * sparse * twinkle;
       }
 
-      vec2 lensField(vec2 centered, float r, float a) {
-        float lens = 1.0 / (r * r + 0.032);
-        vec2 lensed = rot(0.038 * lens + 0.030 * sin(a * 2.0 - uTime * 0.12)) * centered;
-        lensed *= 1.0 + 0.022 * lens;
-        return lensed;
+      vec3 heatColor(float heat, float doppler) {
+        vec3 ember = vec3(0.72, 0.08, 0.015);
+        vec3 orange = vec3(1.0, 0.36, 0.055);
+        vec3 gold = vec3(1.0, 0.72, 0.26);
+        vec3 whiteHot = vec3(1.0, 0.96, 0.84);
+        vec3 warm = mix(ember, orange, smoothstep(0.0, 0.45, heat));
+        warm = mix(warm, gold, smoothstep(0.34, 0.78, heat));
+        return mix(warm, whiteHot, smoothstep(0.62, 1.0, heat * doppler));
       }
 
-      vec3 fireRamp(float t) {
-        t = clamp(t, 0.0, 1.0);
-        vec3 deep = vec3(0.18, 0.015, 0.0);
-        vec3 red = vec3(0.85, 0.075, 0.0);
-        vec3 orange = vec3(1.0, 0.42, 0.035);
-        vec3 gold = vec3(1.0, 0.80, 0.26);
-        vec3 white = vec3(1.0, 0.96, 0.74);
-        vec3 c = mix(deep, red, smoothstep(0.05, 0.32, t));
-        c = mix(c, orange, smoothstep(0.24, 0.58, t));
-        c = mix(c, gold, smoothstep(0.48, 0.82, t));
-        c = mix(c, white, smoothstep(0.78, 1.0, t));
-        return c;
+      vec4 diskColor(vec2 q, float line, float width, float mask, float layerStrength) {
+        float radial = abs(q.x);
+        float radiusMask = smoothstep(0.18, 0.27, radial) * (1.0 - smoothstep(1.02, 1.22, radial));
+        float band = exp(-(line * line) / max(width * width, 0.0001));
+        band *= radiusMask * mask;
+
+        float angle = atan(q.y * 2.7, q.x);
+        float flow = radial * 44.0 - angle * 6.5 - uTime * 1.65;
+        float turbulent = fbm(vec2(radial * 16.0 - uTime * 0.8, angle * 4.0 + uTime * 0.18));
+        float strands = pow(0.5 + 0.5 * sin(flow + turbulent * 6.0), 5.0);
+        float filaments = pow(0.5 + 0.5 * sin(q.x * 128.0 + q.y * 54.0 - uTime * 5.0 + turbulent * 8.0), 9.0);
+        float granular = fbm(q * vec2(20.0, 58.0) + vec2(uTime * 0.3, -uTime * 0.12));
+        float texture = 0.58 + strands * 0.34 + filaments * 0.24 + granular * 0.28;
+
+        float heat = 1.0 - smoothstep(0.22, 1.06, radial);
+        heat = saturate(heat + band * 0.22);
+        float doppler = 0.48 + 1.04 * smoothstep(-0.78, 0.68, q.x);
+        float alpha = saturate(band * texture * doppler * layerStrength);
+        vec3 color = heatColor(heat, doppler) * alpha * (0.62 + heat * 0.88);
+
+        return vec4(color, alpha);
       }
 
-      vec3 diskLayer(vec2 p, vec2 centered, float layer, float side) {
-        float r = length(centered);
-        float a = atan(centered.y, centered.x);
+      vec4 backDisk(vec2 p) {
+        vec2 q = rotate2d(-DISK_TILT) * p;
+        float radial = abs(q.x);
 
-        float gravity = 1.0 / (r * r + 0.035);
-        float bend = 0.20 * gravity;
-        float swirl = 0.17 * gravity + 0.08 * sin(3.0 * a + uTime * 0.18);
-        vec2 q = p;
-        q = rot(swirl) * q;
-        q.y += side * bend * (0.09 + 0.018 * sin(2.0 * a + layer));
-        q.x += 0.030 * sin(q.y * 7.0 + uTime * 0.15) * gravity;
+        float upperArc = 0.088 + 0.188 * exp(-radial * radial * 7.4);
+        float upperWidth = 0.030 + 0.020 * exp(-radial * radial * 4.2);
+        vec4 upper = diskColor(q, q.y - upperArc, upperWidth, smoothstep(-0.02, 0.13, q.y), 0.84);
 
-        float qr = length(q);
-        float qa = atan(q.y, q.x);
-        float diskRadius = mix(0.78, 1.44, smoothstep(-1.0, 1.0, layer));
-        float tilt = 0.18 + 0.04 * sin(layer * 2.4);
+        float lowerArc = -0.118 - 0.118 * exp(-radial * radial * 7.0);
+        float lowerWidth = 0.022 + 0.014 * exp(-radial * radial * 3.4);
+        vec4 lowerEcho = diskColor(q, q.y - lowerArc, lowerWidth, 1.0 - smoothstep(-0.20, -0.03, q.y), 0.22);
 
-        float warpedPlane = q.y - side * (
-          0.18 / (qr + 0.20)
-          - 0.048 * qr
-          + 0.025 * sin(qa * 4.0 + uTime * 0.28 + layer * 3.1)
-        );
-        float thickness = 0.034 + 0.022 * smoothstep(0.0, 1.0, qr) + 0.012 * fbm(q * 7.0 + layer);
-        float lane = ridge(warpedPlane / max(tilt, 0.1), thickness);
-
-        float radial = smoothstep(0.16, 0.31, r) * (1.0 - smoothstep(diskRadius, diskRadius + 0.26, r));
-        float stream = fbm(vec2(qa * 6.4 + uTime * (0.30 + layer * 0.06), qr * 11.0 - uTime * 0.54 + layer * 4.0));
-        float filament = pow(smoothstep(0.20, 1.0, stream), 2.2);
-        float fine = fbm(vec2(qa * 16.0 - uTime * 1.05 + layer * 2.0, qr * 28.0 + stream * 5.5));
-        float streaks = pow(smoothstep(0.30, 1.0, 0.5 + 0.5 * sin(qa * 34.0 + qr * 42.0 - uTime * 2.8 + fine * 6.0)), 1.45);
-        float gaps = 0.58 + 0.42 * sin(qa * 18.0 + qr * 19.0 - uTime * 2.1 + stream * 4.0);
-        float density = lane * radial * (0.52 + 1.10 * filament) * (0.55 + 0.45 * gaps) * (0.62 + 0.78 * streaks);
-
-        float doppler = smoothstep(-0.92, 0.72, cos(a - 0.24));
-        float beaming = mix(0.32, 2.10, doppler);
-        float redshift = smoothstep(0.16, 0.72, r);
-        float innerHeat = 0.85 + 0.70 * (1.0 - smoothstep(0.20, 0.62, r));
-        float heat = density * beaming * redshift * innerHeat;
-        vec3 color = fireRamp(heat * 1.18 + filament * 0.42 + streaks * 0.25);
-
-        color *= heat * (0.58 + 0.86 * layer);
-        color *= mix(0.72, 1.18, smoothstep(0.0, 1.0, side * centered.y + 0.52));
-        return color;
+        return vec4(upper.rgb + lowerEcho.rgb, saturate(upper.a + lowerEcho.a));
       }
 
-      vec3 lensedBackArcs(vec2 p, vec2 centered) {
-        float x = p.x;
-        float y = p.y;
-        float r = length(centered);
-        float a = atan(centered.y, centered.x);
-        float safeR = max(r, 0.025);
-        float gravity = 1.0 / (safeR * safeR + 0.040);
-        float turbulent = fbm(vec2(a * 6.0 - uTime * 0.34, safeR * 12.0 + uTime * 0.18));
-        float filaments = fbm(vec2(centered.x * 10.0 + uTime * 0.30, centered.y * 22.0 - uTime * 0.48));
-        float streaks = pow(smoothstep(0.26, 1.0, 0.5 + 0.5 * sin(a * 30.0 + safeR * 48.0 - uTime * 2.4 + filaments * 5.0)), 1.35);
-
-        float coreAvoid = smoothstep(0.16, 0.26, r);
-        float span = smoothstep(0.12, 0.42, abs(x)) * (1.0 - smoothstep(0.88, 1.18, abs(x)));
-        float beaming = mix(0.48, 1.75, smoothstep(-0.42, 0.78, x + 0.09 * sin(a)));
-
-        float upperCurve = 0.32 * exp(-x * x * 1.7) + 0.08 / (abs(x) + 0.42) - 0.075;
-        upperCurve += 0.018 * sin(x * 9.0 + uTime * 0.55 + turbulent * 3.0);
-        float lowerCurve = -0.25 * exp(-x * x * 1.45) - 0.045 / (abs(x) + 0.56) + 0.050;
-        lowerCurve += 0.014 * sin(x * 8.0 - uTime * 0.42 + turbulent * 4.0);
-
-        float upper = ridge(y - upperCurve, 0.010 + 0.020 * abs(x) + 0.020 * turbulent);
-        float lower = ridge(y - lowerCurve, 0.012 + 0.019 * abs(x) + 0.018 * turbulent);
-
-        float density = (upper * 1.08 + lower * 0.56) * span * coreAvoid;
-        density *= 0.45 + 1.15 * pow(filaments, 1.9);
-        density *= 0.55 + 0.50 * streaks;
-        density *= 0.65 + 0.35 * sin(a * 22.0 + safeR * 29.0 - uTime * 2.2 + turbulent * 5.0);
-
-        vec3 color = fireRamp(density * beaming * 1.05 + filaments * 0.28 + streaks * 0.22);
-        return color * density * beaming * 0.48;
+      vec4 frontDisk(vec2 p, vec2 rawP) {
+        vec2 q = rotate2d(-DISK_TILT) * p;
+        float radial = abs(q.x);
+        float centerline = -0.030 - 0.052 * exp(-radial * radial * 7.0);
+        float width = 0.045 + 0.025 * exp(-radial * radial * 4.5);
+        float lowerHalf = 1.0 - smoothstep(0.035, 0.145, q.y);
+        float outsideHorizon = smoothstep(EVENT_RADIUS * 1.04, EVENT_RADIUS * 1.34, length(rawP));
+        return diskColor(q, q.y - centerline, width, lowerHalf * outsideHorizon, 1.08);
       }
 
-      vec3 backEquatorialBand(vec2 p) {
-        float x = p.x;
-        float y = p.y;
-        float r = length(p);
-        float turbulence = fbm(vec2(x * 8.5 - uTime * 0.22, y * 24.0 + uTime * 0.16));
-
-        float midline = 0.010 * sin(x * 5.2 + uTime * 0.20) + 0.006 * (turbulence - 0.5);
-        float width = 0.012 + 0.014 * smoothstep(0.18, 0.92, abs(x));
-        float core = exp(-pow((y - midline) / width, 2.0));
-        float halo = exp(-pow((y - midline) / (width * 3.5), 2.0)) * 0.34;
-
-        float span = smoothstep(0.13, 0.25, abs(x)) * (1.0 - smoothstep(1.16, 1.52, abs(x)));
-        float behindShadow = smoothstep(0.175, 0.255, r);
-        float photonEdge = exp(-pow((abs(x) - 0.215) / 0.036, 2.0)) * exp(-pow((y - midline) / 0.035, 2.0));
-        float filaments = 0.55 + 0.45 * fbm(vec2(x * 24.0 - uTime * 0.82, y * 50.0 + uTime * 0.24));
-        float streaks = smoothstep(0.24, 0.95, 0.5 + 0.5 * sin(x * 48.0 + y * 18.0 - uTime * 3.0 + filaments * 5.0));
-
-        float rightDoppler = smoothstep(-0.72, 0.86, x);
-        float beaming = mix(0.26, 2.45, rightDoppler);
-        float density = (core * 0.82 + halo * 0.20 + photonEdge * 1.72) * span * behindShadow * filaments * (0.72 + 0.56 * streaks);
-
-        vec3 away = vec3(0.62, 0.040, 0.006);
-        vec3 warm = vec3(1.0, 0.34, 0.035);
-        vec3 approach = vec3(1.0, 0.92, 0.48);
-        vec3 color = mix(away, warm, smoothstep(-0.70, 0.05, x));
-        color = mix(color, approach, rightDoppler);
-
-        return color * density * beaming * 1.02;
-      }
-
-      vec3 frontDiskLayer(vec2 p, vec2 centered) {
-        float x = p.x;
-        float y = p.y;
-        float r = length(centered);
-        float a = atan(centered.y, centered.x);
-        float turbulent = fbm(vec2(a * 6.0 - uTime * 0.30, r * 13.0 + uTime * 0.20));
-
-        float lowerDepth = -centered.y;
-        float lowerWindow = smoothstep(0.055, 0.135, lowerDepth) * (1.0 - smoothstep(0.225, 0.340, lowerDepth));
-        float span = smoothstep(0.02, 0.11, abs(x)) * (1.0 - smoothstep(0.82, 1.12, abs(x)));
-        float frontCurve = -0.130 + 0.012 * sin(x * 5.4 + uTime * 0.22) - 0.014 * exp(-x * x * 6.2);
-        frontCurve += 0.006 * (turbulent - 0.5);
-        float width = 0.010 + 0.006 * turbulent + 0.006 * smoothstep(0.0, 0.62, abs(x));
-        float lane = ridge(y - frontCurve, width);
-        float softHalo = ridge(y - frontCurve, width * 3.0) * 0.12;
-
-        float filament = fbm(vec2(centered.x * 18.0 - uTime * 0.58, centered.y * 36.0 + uTime * 0.22));
-        float rightDoppler = smoothstep(-0.58, 0.78, x);
-        float beaming = mix(0.35, 2.05, rightDoppler);
-        float density = (lane * 0.68 + softHalo) * span * lowerWindow * (0.55 + 0.62 * filament);
-
-        vec3 color = mix(vec3(0.54, 0.035, 0.005), vec3(1.0, 0.80, 0.32), rightDoppler);
-        return color * density * beaming * 0.56;
-      }
-
-      vec3 upperForegroundArc(vec2 p, vec2 centered) {
-        float x = p.x;
-        float y = p.y;
-        float r = length(centered);
-        float a = atan(centered.y, centered.x);
-        float turbulent = fbm(vec2(a * 7.5 - uTime * 0.34, r * 16.0 + uTime * 0.25));
-
-        float topDepth = centered.y;
-        float topWindow = smoothstep(0.105, 0.172, topDepth) * (1.0 - smoothstep(0.305, 0.440, topDepth));
-        float rimWindow = smoothstep(0.135, 0.185, r) * (1.0 - smoothstep(0.48, 0.78, r));
-        float span = smoothstep(0.02, 0.12, abs(x)) * (1.0 - smoothstep(0.94, 1.22, abs(x)));
-        float arcCurve = 0.158 + 0.030 * exp(-x * x * 2.4) + 0.014 * sin(x * 6.0 + uTime * 0.28);
-        arcCurve += 0.009 * (turbulent - 0.5);
-        float width = 0.010 + 0.009 * turbulent + 0.005 * smoothstep(0.0, 0.62, abs(x));
-        float lane = ridge(y - arcCurve, width);
-        float filament = fbm(vec2(centered.x * 22.0 - uTime * 0.82, centered.y * 46.0 + uTime * 0.24));
-        float fine = smoothstep(0.28, 1.0, 0.5 + 0.5 * sin(x * 52.0 + y * 32.0 - uTime * 3.4 + filament * 6.0));
-
-        float rightDoppler = smoothstep(-0.58, 0.80, x);
-        float beaming = mix(0.34, 2.25, rightDoppler);
-        float density = lane * topWindow * rimWindow * span * (0.62 + 0.64 * filament) * (0.72 + 0.52 * fine);
-
-        vec3 color = mix(vec3(0.70, 0.060, 0.006), vec3(1.0, 0.95, 0.62), rightDoppler);
-        return color * density * beaming * 0.72;
-      }
-
-      vec3 stars(vec2 p) {
-        vec2 cell = floor(p * 210.0);
-        vec2 f = fract(p * 210.0) - 0.5;
-        float h = hash(cell);
-        float star = smoothstep(0.9965, 1.0, h) * exp(-dot(f, f) * 58.0);
-        float twinkle = 0.55 + 0.45 * sin(uTime * 1.7 + h * 40.0);
-        vec3 starColor = mix(vec3(0.70, 0.82, 1.0), vec3(1.0), smoothstep(0.998, 1.0, h));
-        return starColor * star * twinkle * 0.70;
+      vec3 photonRing(float d, vec2 p) {
+        float core = exp(-pow((d - EVENT_RADIUS * 1.045) / 0.0075, 2.0));
+        float halo = exp(-pow((d - EVENT_RADIUS * 1.105) / 0.025, 2.0));
+        float asymmetry = 0.84 + 0.34 * smoothstep(-0.24, 0.24, p.x);
+        vec3 white = vec3(1.0, 0.96, 0.86);
+        vec3 amber = vec3(1.0, 0.45, 0.08);
+        return (white * core * 1.62 + amber * halo * 0.52) * asymmetry;
       }
 
       void main() {
-        vec2 centered = centeredPosition(gl_FragCoord.xy);
+        vec2 frag = gl_FragCoord.xy;
+        vec2 p = (frag - uResolution * 0.5) / min(uResolution.x, uResolution.y);
+        vec2 lensed = lensWarp(p);
+        float d = length(p);
 
-        float r = length(centered);
-        float a = atan(centered.y, centered.x);
+        vec2 starSpace = lensWarp(p * 1.28 + vec2(0.02 * sin(uTime * 0.05), 0.0));
+        float stars = sparseStars(starSpace + vec2(0.43, 0.19));
+        vec3 color = vec3(stars);
+        color += vec3(0.018, 0.026, 0.04) * (1.0 - smoothstep(0.0, 1.22, length(p)));
 
-        vec3 col = vec3(0.0);
-        col += stars(centered + vec2(7.1, 2.4));
+        vec4 back = backDisk(lensed);
+        color += back.rgb;
 
-        vec2 diskCentered = rot(-DISK_TILT) * centered;
-        float diskR = length(diskCentered);
-        float diskA = atan(diskCentered.y, diskCentered.x);
-        vec2 lensed = lensField(diskCentered, diskR, diskA);
-        vec2 coreDiskField = vec2(lensed.x, lensed.y * 0.86);
+        float outerGlow = (1.0 - smoothstep(EVENT_RADIUS * 1.0, 0.62, d)) * 0.12 / (d * d + 0.05);
+        color += vec3(1.0, 0.28, 0.045) * outerGlow;
 
-        vec3 lowerArc = diskLayer(lensed, diskCentered, 0.24, -1.0);
-        vec3 upperArc = diskLayer(lensed, diskCentered, 0.78, 1.0);
-        vec3 coreDisk = diskLayer(coreDiskField, diskCentered, 0.52, 0.0);
-        vec3 backDisk = coreDisk * 0.68 + upperArc * 1.60 + lowerArc * 0.70;
-        backDisk += lensedBackArcs(lensed, diskCentered) * 1.02;
-        backDisk += backEquatorialBand(diskCentered) * 0.62;
-        col += backDisk;
+        if (d < EVENT_RADIUS) {
+          color = vec3(0.0);
+        }
 
-        float glow = exp(-r * 2.4) * 0.055;
-        glow += exp(-pow((r - 0.55) / 0.55, 2.0)) * 0.055;
-        glow += exp(-pow(abs(centered.y) / 0.56, 1.7)) * exp(-abs(centered.x) * 1.05) * 0.035;
-        col += vec3(1.0, 0.31, 0.045) * glow;
+        color += photonRing(d, p);
 
-        float eventHorizon = smoothstep(0.190, 0.158, r);
-        float innerShade = smoothstep(0.30, 0.17, r);
-        col = mix(col, vec3(0.0), eventHorizon);
-        col *= 1.0 - innerShade * 0.60;
+        vec4 front = frontDisk(lensed, p);
+        color += front.rgb;
 
-        float shadowSoft = smoothstep(0.31, 0.18, r);
-        col *= 1.0 - shadowSoft * 0.48;
+        if (d < EVENT_RADIUS) {
+          color = vec3(0.0);
+        }
 
-        col += upperForegroundArc(lensed, diskCentered) * 1.10;
-        col += frontDiskLayer(lensed, diskCentered) * 1.12;
+        float vignette = smoothstep(1.22, 0.22, length(p));
+        color *= mix(0.34, 1.0, vignette);
+        color = pow(max(color, vec3(0.0)), vec3(0.78));
 
-        float photonBase = abs(r - 0.176);
-        float ringJitter = 0.0048 * fbm(vec2(a * 8.0, uTime * 0.24));
-        float photonRing = exp(-pow((photonBase - ringJitter) / 0.0058, 2.0));
-        float subRing = exp(-pow((abs(r - 0.208) - ringJitter * 0.6) / 0.017, 2.0));
-        float ringBeam = mix(0.42, 1.85, smoothstep(-0.65, 0.95, cos(a - 0.18)));
-        vec3 photonColor = mix(vec3(1.0, 0.62, 0.10), vec3(1.0, 0.98, 0.82), smoothstep(0.35, 1.0, ringBeam));
-        col += photonColor * photonRing * ringBeam * 4.85;
-        col += vec3(1.0, 0.50, 0.10) * subRing * ringBeam * 0.24;
-
-        vec2 vignetteUv = vUv * (1.0 - vUv.yx);
-        float vignette = pow(clamp(vignetteUv.x * vignetteUv.y * 14.0, 0.0, 1.0), 0.42);
-        col *= vignette;
-
-        col = max(col, vec3(0.0));
-        col = col / (1.0 + col);
-        col = pow(col, vec3(0.84));
-
-        gl_FragColor = vec4(col, 1.0);
+        gl_FragColor = vec4(color, 1.0);
       }
     `;
 
-    const material = new THREE.ShaderMaterial({
-      uniforms,
-      vertexShader,
-      fragmentShader,
-      depthWrite: false,
-      depthTest: false,
-    });
+    function compileShader(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
 
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
-    scene.add(mesh);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        const log = gl.getShaderInfoLog(shader) || 'Unknown shader error';
+        gl.deleteShader(shader);
+        throw new Error(log);
+      }
 
-    const clock = new THREE.Clock();
+      return shader;
+    }
+
+    function createProgram() {
+      const vertexShader = compileShader(gl.VERTEX_SHADER, vertexSource);
+      const fragmentShader = compileShader(gl.FRAGMENT_SHADER, fragmentSource);
+      const program = gl.createProgram();
+
+      gl.attachShader(program, vertexShader);
+      gl.attachShader(program, fragmentShader);
+      gl.linkProgram(program);
+      gl.deleteShader(vertexShader);
+      gl.deleteShader(fragmentShader);
+
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        const log = gl.getProgramInfoLog(program) || 'Unknown program error';
+        gl.deleteProgram(program);
+        throw new Error(log);
+      }
+
+      return program;
+    }
+
+    const program = createProgram();
+    const positionLocation = gl.getAttribLocation(program, 'aPosition');
+    const resolutionLocation = gl.getUniformLocation(program, 'uResolution');
+    const timeLocation = gl.getUniformLocation(program, 'uTime');
+
+    const triangle = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, triangle);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1,
+       3, -1,
+      -1,  3,
+    ]), gl.STATIC_DRAW);
+
+    let width = 0;
+    let height = 0;
+    const startTime = performance.now();
 
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      renderer.setPixelRatio(dpr);
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      const rect = renderer.domElement.getBoundingClientRect();
-      const width = rect.width * dpr;
-      const height = rect.height * dpr;
-      const center = { x: width / 2, y: height / 2 };
+      const nextWidth = Math.max(1, Math.floor(window.innerWidth * dpr));
+      const nextHeight = Math.max(1, Math.floor(window.innerHeight * dpr));
 
-      uniforms.uResolution.value.set(width, height);
-      uniforms.uCenter.value.set(center.x, center.y);
-      uniforms.uPixelRatio.value = dpr;
+      if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
+        canvas.width = nextWidth;
+        canvas.height = nextHeight;
+      }
+
+      width = nextWidth;
+      height = nextHeight;
+      gl.viewport(0, 0, width, height);
     }
 
-    window.addEventListener('resize', resize);
-    resize();
-
-    function render() {
-      uniforms.uTime.value = clock.getElapsedTime();
-      renderer.render(scene, camera);
+    function render(now) {
+      resize();
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, triangle);
+      gl.enableVertexAttribArray(positionLocation);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform2f(resolutionLocation, width, height);
+      gl.uniform1f(timeLocation, (now - startTime) * 0.001);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
       requestAnimationFrame(render);
     }
 
-    render();
+    window.addEventListener('resize', resize, { passive: true });
+    requestAnimationFrame(render);
   </script>
 </body>
 </html>
