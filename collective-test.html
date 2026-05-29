@@ -41,6 +41,7 @@
     const uniforms = {
       uTime: { value: 0 },
       uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+      uCenter: { value: new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2) },
       uPixelRatio: { value: renderer.getPixelRatio() },
     };
 
@@ -58,9 +59,11 @@
 
       uniform float uTime;
       uniform vec2 uResolution;
+      uniform vec2 uCenter;
       varying vec2 vUv;
 
       #define PI 3.141592653589793
+      const float DISK_TILT = 0.22;
 
       mat2 rot(float a) {
         float s = sin(a);
@@ -100,6 +103,17 @@
         return exp(-x * x / max(width, 0.0001));
       }
 
+      vec2 centeredPosition(vec2 fragCoord) {
+        return (fragCoord - uCenter) / min(uResolution.x, uResolution.y);
+      }
+
+      vec2 lensField(vec2 centered, float r, float a) {
+        float lens = 1.0 / (r * r + 0.032);
+        vec2 lensed = rot(0.038 * lens + 0.030 * sin(a * 2.0 - uTime * 0.12)) * centered;
+        lensed *= 1.0 + 0.022 * lens;
+        return lensed;
+      }
+
       vec3 fireRamp(float t) {
         t = clamp(t, 0.0, 1.0);
         vec3 deep = vec3(0.18, 0.015, 0.0);
@@ -114,9 +128,9 @@
         return c;
       }
 
-      vec3 diskLayer(vec2 p, float layer, float side) {
-        float r = length(p);
-        float a = atan(p.y, p.x);
+      vec3 diskLayer(vec2 p, vec2 centered, float layer, float side) {
+        float r = length(centered);
+        float a = atan(centered.y, centered.x);
 
         float gravity = 1.0 / (r * r + 0.035);
         float bend = 0.20 * gravity;
@@ -139,32 +153,36 @@
         float thickness = 0.034 + 0.022 * smoothstep(0.0, 1.0, qr) + 0.012 * fbm(q * 7.0 + layer);
         float lane = ridge(warpedPlane / max(tilt, 0.1), thickness);
 
-        float radial = smoothstep(0.16, 0.31, qr) * (1.0 - smoothstep(diskRadius, diskRadius + 0.26, qr));
-        float stream = fbm(vec2(qa * 5.2 + uTime * (0.26 + layer * 0.04), qr * 9.5 - uTime * 0.42 + layer * 4.0));
+        float radial = smoothstep(0.16, 0.31, r) * (1.0 - smoothstep(diskRadius, diskRadius + 0.26, r));
+        float stream = fbm(vec2(qa * 6.4 + uTime * (0.30 + layer * 0.06), qr * 11.0 - uTime * 0.54 + layer * 4.0));
         float filament = pow(smoothstep(0.20, 1.0, stream), 2.2);
+        float fine = fbm(vec2(qa * 16.0 - uTime * 1.05 + layer * 2.0, qr * 28.0 + stream * 5.5));
+        float streaks = pow(smoothstep(0.30, 1.0, 0.5 + 0.5 * sin(qa * 34.0 + qr * 42.0 - uTime * 2.8 + fine * 6.0)), 1.45);
         float gaps = 0.58 + 0.42 * sin(qa * 18.0 + qr * 19.0 - uTime * 2.1 + stream * 4.0);
-        float density = lane * radial * (0.55 + 0.95 * filament) * (0.68 + 0.32 * gaps);
+        float density = lane * radial * (0.52 + 1.10 * filament) * (0.55 + 0.45 * gaps) * (0.62 + 0.78 * streaks);
 
-        float doppler = smoothstep(-0.92, 0.72, cos(qa - 0.24));
-        float beaming = mix(0.32, 1.85, doppler);
-        float redshift = smoothstep(0.16, 0.72, qr);
-        float heat = density * beaming * redshift;
-        vec3 color = fireRamp(heat * 0.72 + filament * 0.35);
+        float doppler = smoothstep(-0.92, 0.72, cos(a - 0.24));
+        float beaming = mix(0.32, 2.10, doppler);
+        float redshift = smoothstep(0.16, 0.72, r);
+        float innerHeat = 0.85 + 0.70 * (1.0 - smoothstep(0.20, 0.62, r));
+        float heat = density * beaming * redshift * innerHeat;
+        vec3 color = fireRamp(heat * 1.18 + filament * 0.42 + streaks * 0.25);
 
-        color *= heat * (0.45 + 0.75 * layer);
-        color *= mix(0.72, 1.18, smoothstep(0.0, 1.0, side * p.y + 0.52));
+        color *= heat * (0.58 + 0.86 * layer);
+        color *= mix(0.72, 1.18, smoothstep(0.0, 1.0, side * centered.y + 0.52));
         return color;
       }
 
-      vec3 lensedBridge(vec2 p) {
+      vec3 lensedBackArcs(vec2 p, vec2 centered) {
         float x = p.x;
         float y = p.y;
-        float r = length(p);
-        float a = atan(y, x);
+        float r = length(centered);
+        float a = atan(centered.y, centered.x);
         float safeR = max(r, 0.025);
         float gravity = 1.0 / (safeR * safeR + 0.040);
         float turbulent = fbm(vec2(a * 6.0 - uTime * 0.34, safeR * 12.0 + uTime * 0.18));
-        float filaments = fbm(vec2(x * 8.0 + uTime * 0.24, y * 18.0 - uTime * 0.38));
+        float filaments = fbm(vec2(centered.x * 10.0 + uTime * 0.30, centered.y * 22.0 - uTime * 0.48));
+        float streaks = pow(smoothstep(0.26, 1.0, 0.5 + 0.5 * sin(a * 30.0 + safeR * 48.0 - uTime * 2.4 + filaments * 5.0)), 1.35);
 
         float coreAvoid = smoothstep(0.16, 0.26, r);
         float span = smoothstep(0.12, 0.42, abs(x)) * (1.0 - smoothstep(0.88, 1.18, abs(x)));
@@ -174,61 +192,136 @@
         upperCurve += 0.018 * sin(x * 9.0 + uTime * 0.55 + turbulent * 3.0);
         float lowerCurve = -0.25 * exp(-x * x * 1.45) - 0.045 / (abs(x) + 0.56) + 0.050;
         lowerCurve += 0.014 * sin(x * 8.0 - uTime * 0.42 + turbulent * 4.0);
-        float frontCurve = 0.015 * sin(x * 5.0 + uTime * 0.22) - 0.040 * exp(-x * x * 4.8);
 
         float upper = ridge(y - upperCurve, 0.010 + 0.020 * abs(x) + 0.020 * turbulent);
         float lower = ridge(y - lowerCurve, 0.012 + 0.019 * abs(x) + 0.018 * turbulent);
-        float front = ridge(y - frontCurve, 0.020 + 0.012 * turbulent);
 
-        float density = (upper * 0.95 + lower * 0.82 + front * 0.75) * span * coreAvoid;
+        float density = (upper * 1.08 + lower * 0.56) * span * coreAvoid;
         density *= 0.45 + 1.15 * pow(filaments, 1.9);
+        density *= 0.55 + 0.50 * streaks;
         density *= 0.65 + 0.35 * sin(a * 22.0 + safeR * 29.0 - uTime * 2.2 + turbulent * 5.0);
 
-        vec3 color = fireRamp(density * beaming * 0.92 + filaments * 0.22);
-        return color * density * beaming * 0.42;
+        vec3 color = fireRamp(density * beaming * 1.05 + filaments * 0.28 + streaks * 0.22);
+        return color * density * beaming * 0.48;
+      }
+
+      vec3 backEquatorialBand(vec2 p) {
+        float x = p.x;
+        float y = p.y;
+        float r = length(p);
+        float turbulence = fbm(vec2(x * 8.5 - uTime * 0.22, y * 24.0 + uTime * 0.16));
+
+        float midline = 0.010 * sin(x * 5.2 + uTime * 0.20) + 0.006 * (turbulence - 0.5);
+        float width = 0.012 + 0.014 * smoothstep(0.18, 0.92, abs(x));
+        float core = exp(-pow((y - midline) / width, 2.0));
+        float halo = exp(-pow((y - midline) / (width * 3.5), 2.0)) * 0.34;
+
+        float span = smoothstep(0.13, 0.25, abs(x)) * (1.0 - smoothstep(1.16, 1.52, abs(x)));
+        float behindShadow = smoothstep(0.175, 0.255, r);
+        float photonEdge = exp(-pow((abs(x) - 0.215) / 0.036, 2.0)) * exp(-pow((y - midline) / 0.035, 2.0));
+        float filaments = 0.55 + 0.45 * fbm(vec2(x * 24.0 - uTime * 0.82, y * 50.0 + uTime * 0.24));
+        float streaks = smoothstep(0.24, 0.95, 0.5 + 0.5 * sin(x * 48.0 + y * 18.0 - uTime * 3.0 + filaments * 5.0));
+
+        float rightDoppler = smoothstep(-0.72, 0.86, x);
+        float beaming = mix(0.26, 2.45, rightDoppler);
+        float density = (core * 0.82 + halo * 0.20 + photonEdge * 1.72) * span * behindShadow * filaments * (0.72 + 0.56 * streaks);
+
+        vec3 away = vec3(0.62, 0.040, 0.006);
+        vec3 warm = vec3(1.0, 0.34, 0.035);
+        vec3 approach = vec3(1.0, 0.92, 0.48);
+        vec3 color = mix(away, warm, smoothstep(-0.70, 0.05, x));
+        color = mix(color, approach, rightDoppler);
+
+        return color * density * beaming * 1.02;
+      }
+
+      vec3 frontDiskLayer(vec2 p, vec2 centered) {
+        float x = p.x;
+        float y = p.y;
+        float r = length(centered);
+        float a = atan(centered.y, centered.x);
+        float turbulent = fbm(vec2(a * 6.0 - uTime * 0.30, r * 13.0 + uTime * 0.20));
+
+        float lowerDepth = -centered.y;
+        float lowerWindow = smoothstep(0.055, 0.135, lowerDepth) * (1.0 - smoothstep(0.225, 0.340, lowerDepth));
+        float span = smoothstep(0.02, 0.11, abs(x)) * (1.0 - smoothstep(0.82, 1.12, abs(x)));
+        float frontCurve = -0.130 + 0.012 * sin(x * 5.4 + uTime * 0.22) - 0.014 * exp(-x * x * 6.2);
+        frontCurve += 0.006 * (turbulent - 0.5);
+        float width = 0.010 + 0.006 * turbulent + 0.006 * smoothstep(0.0, 0.62, abs(x));
+        float lane = ridge(y - frontCurve, width);
+        float softHalo = ridge(y - frontCurve, width * 3.0) * 0.12;
+
+        float filament = fbm(vec2(centered.x * 18.0 - uTime * 0.58, centered.y * 36.0 + uTime * 0.22));
+        float rightDoppler = smoothstep(-0.58, 0.78, x);
+        float beaming = mix(0.35, 2.05, rightDoppler);
+        float density = (lane * 0.68 + softHalo) * span * lowerWindow * (0.55 + 0.62 * filament);
+
+        vec3 color = mix(vec3(0.54, 0.035, 0.005), vec3(1.0, 0.80, 0.32), rightDoppler);
+        return color * density * beaming * 0.56;
+      }
+
+      vec3 upperForegroundArc(vec2 p, vec2 centered) {
+        float x = p.x;
+        float y = p.y;
+        float r = length(centered);
+        float a = atan(centered.y, centered.x);
+        float turbulent = fbm(vec2(a * 7.5 - uTime * 0.34, r * 16.0 + uTime * 0.25));
+
+        float topDepth = centered.y;
+        float topWindow = smoothstep(0.105, 0.172, topDepth) * (1.0 - smoothstep(0.305, 0.440, topDepth));
+        float rimWindow = smoothstep(0.135, 0.185, r) * (1.0 - smoothstep(0.48, 0.78, r));
+        float span = smoothstep(0.02, 0.12, abs(x)) * (1.0 - smoothstep(0.94, 1.22, abs(x)));
+        float arcCurve = 0.158 + 0.030 * exp(-x * x * 2.4) + 0.014 * sin(x * 6.0 + uTime * 0.28);
+        arcCurve += 0.009 * (turbulent - 0.5);
+        float width = 0.010 + 0.009 * turbulent + 0.005 * smoothstep(0.0, 0.62, abs(x));
+        float lane = ridge(y - arcCurve, width);
+        float filament = fbm(vec2(centered.x * 22.0 - uTime * 0.82, centered.y * 46.0 + uTime * 0.24));
+        float fine = smoothstep(0.28, 1.0, 0.5 + 0.5 * sin(x * 52.0 + y * 32.0 - uTime * 3.4 + filament * 6.0));
+
+        float rightDoppler = smoothstep(-0.58, 0.80, x);
+        float beaming = mix(0.34, 2.25, rightDoppler);
+        float density = lane * topWindow * rimWindow * span * (0.62 + 0.64 * filament) * (0.72 + 0.52 * fine);
+
+        vec3 color = mix(vec3(0.70, 0.060, 0.006), vec3(1.0, 0.95, 0.62), rightDoppler);
+        return color * density * beaming * 0.72;
       }
 
       vec3 stars(vec2 p) {
-        vec2 cell = floor(p * 190.0);
-        vec2 f = fract(p * 190.0) - 0.5;
+        vec2 cell = floor(p * 210.0);
+        vec2 f = fract(p * 210.0) - 0.5;
         float h = hash(cell);
-        float star = smoothstep(0.998, 1.0, h) * exp(-dot(f, f) * 45.0);
-        return vec3(star) * vec3(0.55, 0.70, 1.0) * 0.22;
+        float star = smoothstep(0.9965, 1.0, h) * exp(-dot(f, f) * 58.0);
+        float twinkle = 0.55 + 0.45 * sin(uTime * 1.7 + h * 40.0);
+        vec3 starColor = mix(vec3(0.70, 0.82, 1.0), vec3(1.0), smoothstep(0.998, 1.0, h));
+        return starColor * star * twinkle * 0.70;
       }
 
       void main() {
-        vec2 p = (gl_FragCoord.xy - 0.5 * uResolution.xy) / min(uResolution.x, uResolution.y);
+        vec2 centered = centeredPosition(gl_FragCoord.xy);
 
-        float r = length(p);
-        float a = atan(p.y, p.x);
+        float r = length(centered);
+        float a = atan(centered.y, centered.x);
 
         vec3 col = vec3(0.0);
-        col += stars(p + vec2(7.1, 2.4));
+        col += stars(centered + vec2(7.1, 2.4));
 
-        float lens = 1.0 / (r * r + 0.032);
-        vec2 lensed = p;
-        lensed = rot(0.038 * lens + 0.030 * sin(a * 2.0 - uTime * 0.12)) * lensed;
-        lensed += normalize(p + 0.0001) * (0.022 * lens);
+        vec2 diskCentered = rot(-DISK_TILT) * centered;
+        float diskR = length(diskCentered);
+        float diskA = atan(diskCentered.y, diskCentered.x);
+        vec2 lensed = lensField(diskCentered, diskR, diskA);
+        vec2 coreDiskField = vec2(lensed.x, lensed.y * 0.86);
 
-        vec3 lowerArc = diskLayer(lensed, 0.24, -1.0);
-        vec3 upperArc = diskLayer(lensed, 0.78, 1.0);
-        vec3 coreDisk = diskLayer(lensed * vec2(1.0, 0.86), 0.52, 0.0);
-        col += coreDisk * 1.05;
-        col += upperArc * 1.35;
-        col += lowerArc * 1.20;
-        col += lensedBridge(lensed) * 0.75;
-
-        float photonBase = abs(r - 0.176);
-        float ringJitter = 0.008 * fbm(vec2(a * 8.0, uTime * 0.24));
-        float photonRing = exp(-pow((photonBase - ringJitter) / 0.009, 2.0));
-        float subRing = exp(-pow((abs(r - 0.208) - ringJitter * 0.6) / 0.019, 2.0));
-        float ringBeam = mix(0.42, 1.85, smoothstep(-0.65, 0.95, cos(a - 0.18)));
-        col += fireRamp(0.86) * photonRing * ringBeam * 1.35;
-        col += vec3(1.0, 0.42, 0.08) * subRing * ringBeam * 0.30;
+        vec3 lowerArc = diskLayer(lensed, diskCentered, 0.24, -1.0);
+        vec3 upperArc = diskLayer(lensed, diskCentered, 0.78, 1.0);
+        vec3 coreDisk = diskLayer(coreDiskField, diskCentered, 0.52, 0.0);
+        vec3 backDisk = coreDisk * 0.68 + upperArc * 1.60 + lowerArc * 0.70;
+        backDisk += lensedBackArcs(lensed, diskCentered) * 1.02;
+        backDisk += backEquatorialBand(diskCentered) * 0.62;
+        col += backDisk;
 
         float glow = exp(-r * 2.4) * 0.055;
         glow += exp(-pow((r - 0.55) / 0.55, 2.0)) * 0.055;
-        glow += exp(-pow(abs(p.y) / 0.56, 1.7)) * exp(-abs(p.x) * 1.05) * 0.035;
+        glow += exp(-pow(abs(centered.y) / 0.56, 1.7)) * exp(-abs(centered.x) * 1.05) * 0.035;
         col += vec3(1.0, 0.31, 0.045) * glow;
 
         float eventHorizon = smoothstep(0.190, 0.158, r);
@@ -238,6 +331,18 @@
 
         float shadowSoft = smoothstep(0.31, 0.18, r);
         col *= 1.0 - shadowSoft * 0.48;
+
+        col += upperForegroundArc(lensed, diskCentered) * 1.10;
+        col += frontDiskLayer(lensed, diskCentered) * 1.12;
+
+        float photonBase = abs(r - 0.176);
+        float ringJitter = 0.0048 * fbm(vec2(a * 8.0, uTime * 0.24));
+        float photonRing = exp(-pow((photonBase - ringJitter) / 0.0058, 2.0));
+        float subRing = exp(-pow((abs(r - 0.208) - ringJitter * 0.6) / 0.017, 2.0));
+        float ringBeam = mix(0.42, 1.85, smoothstep(-0.65, 0.95, cos(a - 0.18)));
+        vec3 photonColor = mix(vec3(1.0, 0.62, 0.10), vec3(1.0, 0.98, 0.82), smoothstep(0.35, 1.0, ringBeam));
+        col += photonColor * photonRing * ringBeam * 4.85;
+        col += vec3(1.0, 0.50, 0.10) * subRing * ringBeam * 0.24;
 
         vec2 vignetteUv = vUv * (1.0 - vUv.yx);
         float vignette = pow(clamp(vignetteUv.x * vignetteUv.y * 14.0, 0.0, 1.0), 0.42);
@@ -265,10 +370,17 @@
     const clock = new THREE.Clock();
 
     function resize() {
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      renderer.setPixelRatio(dpr);
       renderer.setSize(window.innerWidth, window.innerHeight);
-      uniforms.uResolution.value.set(window.innerWidth * renderer.getPixelRatio(), window.innerHeight * renderer.getPixelRatio());
-      uniforms.uPixelRatio.value = renderer.getPixelRatio();
+      const rect = renderer.domElement.getBoundingClientRect();
+      const width = rect.width * dpr;
+      const height = rect.height * dpr;
+      const center = { x: width / 2, y: height / 2 };
+
+      uniforms.uResolution.value.set(width, height);
+      uniforms.uCenter.value.set(center.x, center.y);
+      uniforms.uPixelRatio.value = dpr;
     }
 
     window.addEventListener('resize', resize);
