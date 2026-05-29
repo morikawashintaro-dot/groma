@@ -77,8 +77,8 @@
       varying vec2 vUv;
 
       const float PI = 3.141592653589793;
-      const float EVENT_RADIUS = 0.145;
-      const float DISK_TILT = 0.245;
+      const float EVENT_RADIUS = 0.123;
+      const float DISK_TILT = 0.405;
 
       float saturate(float value) {
         return clamp(value, 0.0, 1.0);
@@ -125,7 +125,7 @@
         vec2 dir = p / d;
         float deflection = EVENT_RADIUS / max(d * d, 0.018);
         float nearField = 1.0 - smoothstep(EVENT_RADIUS * 1.05, 1.12, d);
-        return p + dir * deflection * 0.021 * nearField;
+        return p + dir * deflection * 0.028 * nearField;
       }
 
       float sparseStars(vec2 p) {
@@ -150,9 +150,8 @@
         return mix(warm, whiteHot, smoothstep(0.62, 1.0, heat * doppler));
       }
 
-      vec4 diskColor(vec2 q, float line, float width, float mask, float layerStrength) {
-        float radial = abs(q.x);
-        float radiusMask = smoothstep(0.18, 0.27, radial) * (1.0 - smoothstep(1.02, 1.22, radial));
+      vec4 diskColorAtRadial(vec2 q, float radial, float line, float width, float mask, float layerStrength) {
+        float radiusMask = smoothstep(0.145, 0.235, radial) * (1.0 - smoothstep(1.02, 1.22, radial));
         float band = exp(-(line * line) / max(width * width, 0.0001));
         band *= radiusMask * mask;
 
@@ -173,13 +172,25 @@
         return vec4(color, alpha);
       }
 
+      vec4 diskColor(vec2 q, float line, float width, float mask, float layerStrength) {
+        return diskColorAtRadial(q, abs(q.x), line, width, mask, layerStrength);
+      }
+
       vec4 backDisk(vec2 p) {
         vec2 q = rotate2d(-DISK_TILT) * p;
         float radial = abs(q.x);
+        float mainLine = -0.030 - 0.052 * exp(-radial * radial * 7.0);
+        float sideBridge = smoothstep(0.48, 0.98, radial);
 
-        float upperArc = 0.088 + 0.188 * exp(-radial * radial * 7.4);
-        float upperWidth = 0.030 + 0.020 * exp(-radial * radial * 4.2);
-        vec4 upper = diskColor(q, q.y - upperArc, upperWidth, smoothstep(-0.02, 0.13, q.y), 0.84);
+        float lensedCrown = 0.116 + 0.232 * exp(-radial * radial * 5.4);
+        float upperArc = mix(lensedCrown, mainLine, sideBridge);
+        float upperWidth = mix(0.035 + 0.030 * exp(-radial * radial * 4.1), 0.055, sideBridge);
+        float upperMask = max(smoothstep(-0.035, 0.155, q.y), sideBridge * 0.74);
+        float upperRadial = max(radial, EVENT_RADIUS * 1.55);
+        vec4 upper = diskColorAtRadial(q, upperRadial, q.y - upperArc, upperWidth, upperMask, 1.26);
+        float caustic = exp(-pow((q.y - upperArc) / max(upperWidth * 0.64, 0.001), 2.0));
+        float crownHotspot = (1.0 - sideBridge) * smoothstep(0.17, 0.34, upperRadial) * (1.0 - smoothstep(0.62, 0.92, upperRadial));
+        upper.rgb += vec3(1.0, 0.83, 0.56) * caustic * crownHotspot * 0.54;
 
         float lowerArc = -0.118 - 0.118 * exp(-radial * radial * 7.0);
         float lowerWidth = 0.022 + 0.014 * exp(-radial * radial * 3.4);
