@@ -77,8 +77,8 @@
       varying vec2 vUv;
 
       const float PI = 3.141592653589793;
-      const float EVENT_RADIUS = 0.086;
-      const float DISK_TILT = 0.405;
+      const float EVENT_RADIUS = 0.125;
+      const float DISK_TILT = 0.235;
 
       float saturate(float value) {
         return clamp(value, 0.0, 1.0);
@@ -125,7 +125,7 @@
         vec2 dir = p / d;
         float deflection = EVENT_RADIUS / max(d * d, 0.018);
         float nearField = 1.0 - smoothstep(EVENT_RADIUS * 1.05, 1.12, d);
-        return p + dir * deflection * 0.040 * nearField;
+        return p + dir * deflection * 0.026 * nearField;
       }
 
       float sparseStars(vec2 p) {
@@ -143,31 +143,35 @@
       vec3 heatColor(float heat, float doppler) {
         vec3 ember = vec3(0.72, 0.08, 0.015);
         vec3 orange = vec3(1.0, 0.36, 0.055);
-        vec3 gold = vec3(1.0, 0.72, 0.26);
-        vec3 whiteHot = vec3(1.0, 0.96, 0.84);
+        vec3 gold = vec3(1.0, 0.58, 0.15);
+        vec3 whiteHot = vec3(1.0, 0.72, 0.32);
         vec3 warm = mix(ember, orange, smoothstep(0.0, 0.45, heat));
         warm = mix(warm, gold, smoothstep(0.34, 0.78, heat));
-        return mix(warm, whiteHot, smoothstep(0.62, 1.0, heat * doppler));
+        return mix(warm, whiteHot, smoothstep(1.22, 1.62, heat * doppler));
       }
 
-      vec4 diskColorAtRadial(vec2 q, float radial, float line, float width, float mask, float layerStrength) {
-        float radiusMask = smoothstep(0.105, 0.185, radial) * (1.0 - smoothstep(1.02, 1.22, radial));
+      vec4 diskColorAtRadial(vec2 q, float maskRadial, float line, float width, float mask, float layerStrength) {
+        float radial = abs(q.x);
+        float borrowedRadial = max(maskRadial - radial, 0.0);
+        float workingRadial = radial + borrowedRadial * 0.45;
+        float innerEdge = EVENT_RADIUS * 1.12;
+        float radiusMask = smoothstep(innerEdge, innerEdge + 0.085, maskRadial) * (1.0 - smoothstep(1.02, 1.22, maskRadial));
         float band = exp(-(line * line) / max(width * width, 0.0001));
         band *= radiusMask * mask;
 
-        float angle = atan(q.y * 2.7, q.x);
-        float flow = radial * 44.0 - angle * 6.5 - uTime * 1.65;
-        float turbulent = fbm(vec2(radial * 16.0 - uTime * 0.8, angle * 4.0 + uTime * 0.18));
-        float strands = pow(0.5 + 0.5 * sin(flow + turbulent * 6.0), 5.0);
-        float filaments = pow(0.5 + 0.5 * sin(q.x * 128.0 + q.y * 54.0 - uTime * 5.0 + turbulent * 8.0), 9.0);
-        float granular = fbm(q * vec2(20.0, 58.0) + vec2(uTime * 0.3, -uTime * 0.12));
-        float texture = 0.58 + strands * 0.34 + filaments * 0.24 + granular * 0.28;
+        float flowAngle = atan(q.y * 1.6, workingRadial + 0.12);
+        float turbulent = fbm(vec2(workingRadial * 8.0 + q.y * 1.6 - uTime * 0.36, flowAngle * 2.2 + uTime * 0.12));
+        float flow = workingRadial * 18.0 - flowAngle * 2.2 - uTime * 0.88 + turbulent * 3.0;
+        float softFilaments = pow(0.5 + 0.5 * sin(flow), 2.0);
+        float broadBands = pow(0.5 + 0.5 * sin(workingRadial * 7.0 + q.y * 1.8 - flowAngle * 1.15 - uTime * 0.48 + turbulent * 3.4), 1.55);
+        float granular = fbm(q * vec2(10.0, 24.0) + vec2(uTime * 0.20, -uTime * 0.08));
+        float texture = 0.78 + softFilaments * 0.075 + broadBands * 0.065 + granular * 0.16;
 
-        float heat = 1.0 - smoothstep(0.22, 1.06, radial);
-        heat = saturate(heat + band * 0.22);
-        float doppler = 0.48 + 1.04 * smoothstep(-0.78, 0.68, q.x);
-        float alpha = saturate(band * texture * doppler * layerStrength);
-        vec3 color = heatColor(heat, doppler) * alpha * (0.62 + heat * 0.88);
+        float heat = 1.0 - smoothstep(0.19, 1.02, workingRadial);
+        heat = saturate(heat * 0.92 + band * 0.11);
+        float doppler = 0.70 + 0.48 * smoothstep(-0.78, 0.68, q.x);
+        float alpha = saturate(band * texture * (0.84 + doppler * 0.26) * layerStrength);
+        vec3 color = heatColor(heat, doppler) * alpha * (0.56 + heat * 0.54);
 
         return vec4(color, alpha);
       }
@@ -179,22 +183,24 @@
       vec4 backDisk(vec2 p) {
         vec2 q = rotate2d(-DISK_TILT) * p;
         float radial = abs(q.x);
-        float mainLine = -0.030 - 0.052 * exp(-radial * radial * 7.0);
-        float sideBridge = smoothstep(0.48, 0.98, radial);
+        float mainLine = -0.020 - 0.034 * exp(-radial * radial * 6.4);
+        float sideBridge = smoothstep(0.46, 0.94, radial);
 
-        float lensedCrown = 0.116 + 0.232 * exp(-radial * radial * 5.4);
+        float lensedCrown = 0.078 + 0.138 * exp(-radial * radial * 4.6);
         float upperArc = mix(lensedCrown, mainLine, sideBridge);
-        float upperWidth = mix(0.035 + 0.030 * exp(-radial * radial * 4.1), 0.055, sideBridge);
-        float upperMask = max(smoothstep(-0.035, 0.155, q.y), sideBridge * 0.74);
-        float upperRadial = max(radial, EVENT_RADIUS * 1.95);
-        vec4 upper = diskColorAtRadial(q, upperRadial, q.y - upperArc, upperWidth, upperMask, 1.26);
-        float caustic = exp(-pow((q.y - upperArc) / max(upperWidth * 0.64, 0.001), 2.0));
-        float crownHotspot = (1.0 - sideBridge) * smoothstep(0.12, 0.28, upperRadial) * (1.0 - smoothstep(0.62, 0.92, upperRadial));
-        upper.rgb += vec3(1.0, 0.83, 0.56) * caustic * crownHotspot * 0.68;
+        float upperWidth = mix(0.035 + 0.016 * exp(-radial * radial * 4.0), 0.060, sideBridge);
+        float upperMask = max(smoothstep(-0.020, 0.125, q.y), sideBridge * 0.66);
+        float upperRadial = mix(EVENT_RADIUS * 1.58, radial, smoothstep(0.0, EVENT_RADIUS * 1.58, radial));
+        vec4 upper = diskColorAtRadial(q, upperRadial, q.y - upperArc, upperWidth, upperMask, 0.92);
+        float caustic = exp(-pow((q.y - upperArc) / max(upperWidth * 0.82, 0.001), 2.0));
+        float crownHotspot = (1.0 - sideBridge) * smoothstep(0.18, 0.34, upperRadial) * (1.0 - smoothstep(0.62, 0.92, upperRadial));
+        float centerSpikeSuppress = 0.54 + 0.46 * smoothstep(EVENT_RADIUS * 1.12, EVENT_RADIUS * 2.75, radial);
+        upper.rgb *= centerSpikeSuppress;
+        upper.rgb += vec3(1.0, 0.50, 0.12) * caustic * crownHotspot * centerSpikeSuppress * 0.13;
 
-        float lowerArc = -0.118 - 0.118 * exp(-radial * radial * 7.0);
-        float lowerWidth = 0.022 + 0.014 * exp(-radial * radial * 3.4);
-        vec4 lowerEcho = diskColor(q, q.y - lowerArc, lowerWidth, 1.0 - smoothstep(-0.20, -0.03, q.y), 0.22);
+        float lowerArc = -0.078 - 0.070 * exp(-radial * radial * 5.8);
+        float lowerWidth = 0.024 + 0.012 * exp(-radial * radial * 3.2);
+        vec4 lowerEcho = diskColor(q, q.y - lowerArc, lowerWidth, 1.0 - smoothstep(-0.17, -0.018, q.y), 0.16);
 
         return vec4(upper.rgb + lowerEcho.rgb, saturate(upper.a + lowerEcho.a));
       }
@@ -202,20 +208,20 @@
       vec4 frontDisk(vec2 p, vec2 rawP) {
         vec2 q = rotate2d(-DISK_TILT) * p;
         float radial = abs(q.x);
-        float centerline = -0.030 - 0.052 * exp(-radial * radial * 7.0);
-        float width = 0.045 + 0.025 * exp(-radial * radial * 4.5);
-        float lowerHalf = 1.0 - smoothstep(0.035, 0.145, q.y);
-        float outsideHorizon = smoothstep(EVENT_RADIUS * 1.04, EVENT_RADIUS * 1.34, length(rawP));
-        return diskColor(q, q.y - centerline, width, lowerHalf * outsideHorizon, 1.08);
+        float centerline = -0.020 - 0.034 * exp(-radial * radial * 6.4);
+        float width = 0.056 + 0.018 * exp(-radial * radial * 4.0);
+        float lowerHalf = 1.0 - smoothstep(0.038, 0.160, q.y);
+        float outsideHorizon = smoothstep(EVENT_RADIUS * 1.02, EVENT_RADIUS * 1.14, length(rawP));
+        return diskColor(q, q.y - centerline, width, lowerHalf * outsideHorizon, 0.96);
       }
 
       vec3 photonRing(float d, vec2 p) {
-        float core = exp(-pow((d - EVENT_RADIUS * 1.08) / 0.0068, 2.0));
-        float halo = exp(-pow((d - EVENT_RADIUS * 1.34) / 0.030, 2.0));
+        float core = exp(-pow((d - EVENT_RADIUS * 1.025) / 0.0046, 2.0));
+        float halo = exp(-pow((d - EVENT_RADIUS * 1.085) / 0.0120, 2.0));
         float asymmetry = 0.84 + 0.34 * smoothstep(-0.24, 0.24, p.x);
         vec3 white = vec3(1.0, 0.96, 0.86);
         vec3 amber = vec3(1.0, 0.45, 0.08);
-        return (white * core * 2.05 + amber * halo * 0.72) * asymmetry;
+        return (white * core * 1.42 + amber * halo * 0.20) * asymmetry;
       }
 
       void main() {
@@ -232,7 +238,7 @@
         vec4 back = backDisk(lensed);
         color += back.rgb;
 
-        float outerGlow = (1.0 - smoothstep(EVENT_RADIUS * 1.0, 0.62, d)) * 0.12 / (d * d + 0.05);
+        float outerGlow = (1.0 - smoothstep(EVENT_RADIUS * 1.2, 0.54, d)) * 0.018 / (d * d + 0.08);
         color += vec3(1.0, 0.28, 0.045) * outerGlow;
 
         if (d < EVENT_RADIUS) {
@@ -250,7 +256,7 @@
 
         float vignette = smoothstep(1.22, 0.22, length(p));
         color *= mix(0.34, 1.0, vignette);
-        color = pow(max(color, vec3(0.0)), vec3(0.78));
+        color = pow(max(color, vec3(0.0)), vec3(0.88));
 
         gl_FragColor = vec4(color, 1.0);
       }
