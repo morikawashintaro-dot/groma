@@ -82,11 +82,31 @@ canvas.vis { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0
 input[type=file] { display: none; }
 
 /* -- COLLECTIVE -- */
-#collective { background: #000; display: flex; align-items: center; justify-content: center; }
+#collective { background: #0a0a0a; display: flex; align-items: center; justify-content: center; }
 #collective canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
-.coll-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 44px; margin-top: 40px; }
+#cvis { opacity: 0; pointer-events: none; }
+.collective-bg-layer { position: absolute; inset: 0; overflow: hidden; opacity: 0; pointer-events: none; transition: opacity 0.25s; z-index: 0; }
+.collective-bg-layer.active { opacity: 1; }
+#collective-bg-media img, #collective-bg-media video { width: 100%; height: 100%; object-fit: cover; display: block; }
+#collective-bg-media video { background: #000; }
+.coll-content { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 44px; margin-top: 40px; }
 #coll-total { font-size: 52px; font-weight: 400; font-family: 'Courier New', monospace; letter-spacing: -0.02em; color: rgba(255,255,255,0.9); font-variant-numeric: tabular-nums; text-shadow: 0 0 60px rgba(255,160,40,0.3); }
 #coll-now { font-size: 24px; font-weight: 400; font-family: 'Courier New', monospace; color: rgba(255,255,255,0.3); font-variant-numeric: tabular-nums; }
+.collective-bg-select { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 4; border: 0; background: transparent; color: rgba(255,255,255,0.25); font: 11px 'Courier New', monospace; letter-spacing: 0.08em; cursor: pointer; padding: 6px 10px; outline: none; }
+.collective-bg-backdrop { position: absolute; inset: 0; z-index: 20; background: transparent; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.collective-bg-backdrop.visible { opacity: 1; pointer-events: auto; }
+.collective-bg-sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 220px; z-index: 21; background: rgba(0,0,0,0.85); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); border-top: 0.5px solid rgba(255,255,255,0.12); transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.4,0,0.2,1); padding: 20px 18px 22px; }
+.collective-bg-sheet.visible { transform: translateY(0); }
+.collective-bg-title { font: 11px 'Courier New', monospace; letter-spacing: 0.08em; color: rgba(255,255,255,0.3); margin-bottom: 18px; }
+.collective-bg-options { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+.collective-bg-options::-webkit-scrollbar { display: none; }
+.collective-bg-option { width: 72px; flex: 0 0 72px; background: transparent; border: 0; padding: 0; cursor: pointer; outline: none; }
+.collective-bg-thumb { width: 72px; height: 72px; border: 0.5px solid rgba(255,255,255,0.15); border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden; color: rgba(255,255,255,0.5); font: 24px 'Courier New', monospace; transition: border-color 0.15s; }
+.collective-bg-option.selected .collective-bg-thumb { border-color: rgba(255,255,255,0.6); }
+.collective-bg-label { display: block; margin-top: 8px; font: 10px 'Courier New', monospace; letter-spacing: 0.04em; color: rgba(255,255,255,0.4); text-align: center; white-space: nowrap; }
+.collective-bg-none { background: #0a0a0a; }
+.collective-bg-blackhole { background: radial-gradient(circle at 58% 45%, rgba(255,224,150,0.95) 0, rgba(255,130,20,0.65) 24%, rgba(120,28,0,0.42) 48%, rgba(0,0,0,0.95) 78%); }
+.collective-bg-upload { background: rgba(255,255,255,0.035); }
 
 #coll-back { position: fixed; top: 16px; left: 16px; z-index: 9999; font-size: 13px; font-family: 'Courier New', monospace; color: #fff; background: rgba(255,255,255,0.12); border: 0.5px solid rgba(255,255,255,0.4); border-radius: 8px; padding: 6px 14px; cursor: pointer; outline: none; letter-spacing: 0.04em; transition: background 0.15s; display: none; }
 #coll-back.visible { display: block; }
@@ -146,11 +166,33 @@ input[type=file] { display: none; }
   </div>
 
   <div id="collective" class="screen off-right">
+    <div id="collective-bg-media" class="collective-bg-layer"></div>
+    <div id="collective-blackhole-bg" class="collective-bg-layer"></div>
     <canvas id="cvis"></canvas>
     <div class="coll-content">
       <div id="coll-total">0:00:00</div>
       <div id="coll-now">0</div>
     </div>
+    <button id="collective-bg-select" class="collective-bg-select" type="button">select</button>
+    <div id="collective-bg-backdrop" class="collective-bg-backdrop"></div>
+    <div id="collective-bg-sheet" class="collective-bg-sheet" aria-hidden="true">
+      <div class="collective-bg-title">background</div>
+      <div class="collective-bg-options">
+        <button class="collective-bg-option" data-bg="none" type="button">
+          <span class="collective-bg-thumb collective-bg-none"></span>
+          <span class="collective-bg-label">none</span>
+        </button>
+        <button class="collective-bg-option" data-bg="black-hole" type="button">
+          <span class="collective-bg-thumb collective-bg-blackhole"></span>
+          <span class="collective-bg-label">black hole</span>
+        </button>
+        <button class="collective-bg-option" data-bg="upload" type="button">
+          <span class="collective-bg-thumb collective-bg-upload">+</span>
+          <span class="collective-bg-label">upload</span>
+        </button>
+      </div>
+    </div>
+    <input type="file" id="collective-bg-upload" accept="image/*,video/*">
   </div>
 </div>
 <button id="coll-back">‹ back</button>
@@ -249,12 +291,158 @@ function goTo(name) {
   document.getElementById('sound-screen').classList.toggle('off-right', name !== 'sound');
   document.getElementById('collective').classList.toggle('off-right', name !== 'collective');
   collBack.classList.toggle('visible', name === 'collective');
+  if (name === 'collective') {
+    restoreCollectiveBackground();
+  } else {
+    closeCollectiveBgSheet();
+    stopCollectiveBlackHoleBackground();
+  }
 }
 function goBack() { goTo('main'); }
 document.getElementById('sound-link').addEventListener('click', () => { closeSettings(); goTo('sound'); });
 document.getElementById('sound-back').addEventListener('click', goBack);
 document.getElementById('collective-link').addEventListener('click', () => { goTo('collective'); fetchStats(); });
 collBack.addEventListener('click', goBack);
+
+// ==========================================
+// COLLECTIVE BACKGROUND SELECTOR
+// ==========================================
+const collectiveScreen = document.getElementById('collective');
+const collectiveBgMedia = document.getElementById('collective-bg-media');
+const collectiveBlackHoleBg = document.getElementById('collective-blackhole-bg');
+const collectiveBgSelect = document.getElementById('collective-bg-select');
+const collectiveBgBackdrop = document.getElementById('collective-bg-backdrop');
+const collectiveBgSheet = document.getElementById('collective-bg-sheet');
+const collectiveBgUpload = document.getElementById('collective-bg-upload');
+const collectiveBgOptions = Array.from(document.querySelectorAll('.collective-bg-option'));
+const GROMA_BG_KEY = 'groma_bg';
+const GROMA_BG_DATA_KEY = 'groma_bg_data';
+
+function getStoredCollectiveBg() {
+  try { return localStorage.getItem(GROMA_BG_KEY) || 'none'; } catch(e) { return 'none'; }
+}
+
+function getStoredCollectiveBgData() {
+  try { return localStorage.getItem(GROMA_BG_DATA_KEY) || ''; } catch(e) { return ''; }
+}
+
+function isCollectiveVisible() {
+  return !collectiveScreen.classList.contains('off-right');
+}
+
+function openCollectiveBgSheet() {
+  collectiveBgBackdrop.classList.add('visible');
+  collectiveBgSheet.classList.add('visible');
+  collectiveBgSheet.setAttribute('aria-hidden', 'false');
+}
+
+function closeCollectiveBgSheet() {
+  collectiveBgBackdrop.classList.remove('visible');
+  collectiveBgSheet.classList.remove('visible');
+  collectiveBgSheet.setAttribute('aria-hidden', 'true');
+}
+
+function updateCollectiveBgOptions(bg) {
+  collectiveBgOptions.forEach(option => {
+    option.classList.toggle('selected', option.dataset.bg === bg);
+  });
+}
+
+function stopCollectiveBlackHoleBackground() {
+  window.gromaCollectiveBlackHoleWanted = false;
+  collectiveBlackHoleBg.classList.remove('active');
+  if (window.gromaCollectiveBlackHole) window.gromaCollectiveBlackHole.stop();
+}
+
+function startCollectiveBlackHoleBackground() {
+  if (!isCollectiveVisible()) return;
+  window.gromaCollectiveBlackHoleWanted = true;
+  collectiveBlackHoleBg.classList.add('active');
+  if (window.gromaCollectiveBlackHole) window.gromaCollectiveBlackHole.start();
+}
+
+function renderUploadedCollectiveBg(dataUrl) {
+  collectiveBgMedia.innerHTML = '';
+  if (!dataUrl) return;
+  const isVideo = dataUrl.indexOf('data:video') === 0;
+  const media = document.createElement(isVideo ? 'video' : 'img');
+  media.src = dataUrl;
+  if (isVideo) {
+    media.autoplay = true;
+    media.loop = true;
+    media.muted = true;
+    media.playsInline = true;
+    media.setAttribute('playsinline', '');
+    media.addEventListener('loadeddata', () => media.play().catch(() => {}), { once: true });
+  } else {
+    media.alt = '';
+  }
+  collectiveBgMedia.appendChild(media);
+}
+
+function applyCollectiveBackground(bg, dataUrl) {
+  if (bg === 'upload' && !dataUrl) bg = 'none';
+  updateCollectiveBgOptions(bg);
+  collectiveBgMedia.classList.toggle('active', bg === 'upload');
+
+  if (bg === 'upload') {
+    stopCollectiveBlackHoleBackground();
+    renderUploadedCollectiveBg(dataUrl);
+  } else {
+    collectiveBgMedia.innerHTML = '';
+    if (bg === 'black-hole') {
+      startCollectiveBlackHoleBackground();
+    } else {
+      stopCollectiveBlackHoleBackground();
+    }
+  }
+}
+
+function saveCollectiveBackground(bg, dataUrl) {
+  try {
+    localStorage.setItem(GROMA_BG_KEY, bg);
+    if (typeof dataUrl === 'string') localStorage.setItem(GROMA_BG_DATA_KEY, dataUrl);
+  } catch(e) {
+    console.warn('[groma] background could not be persisted', e);
+  }
+}
+
+function restoreCollectiveBackground() {
+  const bg = getStoredCollectiveBg();
+  applyCollectiveBackground(bg, getStoredCollectiveBgData());
+}
+
+collectiveBgSelect.addEventListener('click', openCollectiveBgSheet);
+collectiveBgBackdrop.addEventListener('click', closeCollectiveBgSheet);
+collectiveBgOptions.forEach(option => {
+  option.addEventListener('click', () => {
+    const bg = option.dataset.bg;
+    if (bg === 'upload') {
+      collectiveBgUpload.value = '';
+      collectiveBgUpload.click();
+      return;
+    }
+    saveCollectiveBackground(bg);
+    applyCollectiveBackground(bg, getStoredCollectiveBgData());
+    closeCollectiveBgSheet();
+  });
+});
+collectiveBgUpload.addEventListener('change', () => {
+  const file = collectiveBgUpload.files && collectiveBgUpload.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.addEventListener('load', () => {
+    const dataUrl = String(reader.result || '');
+    saveCollectiveBackground('upload', dataUrl);
+    applyCollectiveBackground('upload', dataUrl);
+    closeCollectiveBgSheet();
+  });
+  reader.readAsDataURL(file);
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeCollectiveBgSheet();
+});
+restoreCollectiveBackground();
 
 // ==========================================
 // SETTINGS
@@ -488,6 +676,394 @@ function drawCollective(ts) {
 requestAnimationFrame(drawCollective);
 
 function fmtColl(s) { const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=Math.floor(s%60);return h+':'+String(m).padStart(2,'0')+':'+String(sc).padStart(2,'0'); }
+</script>
+<script type="module">
+const blackHoleContainer = document.getElementById('collective-blackhole-bg');
+const collectiveForBlackHole = document.getElementById('collective');
+let blackHoleCanvas = null;
+let gl = null;
+let blackHoleProgram = null;
+let blackHoleRaf = null;
+let blackHoleRunning = false;
+let blackHoleWidth = 0;
+let blackHoleHeight = 0;
+let blackHoleStart = 0;
+let positionLocation = null;
+let resolutionLocation = null;
+let timeLocation = null;
+let triangle = null;
+
+const vertexSource = `
+  attribute vec2 aPosition;
+  varying vec2 vUv;
+
+  void main() {
+    vUv = aPosition * 0.5 + 0.5;
+    gl_Position = vec4(aPosition, 0.0, 1.0);
+  }
+`;
+
+const fragmentSource = `
+  #ifdef GL_FRAGMENT_PRECISION_HIGH
+  precision highp float;
+  #else
+  precision mediump float;
+  #endif
+
+  uniform vec2 uResolution;
+  uniform float uTime;
+  varying vec2 vUv;
+
+  const float PI = 3.141592653589793;
+  const float EVENT_RADIUS = 0.125;
+  const float DISK_TILT = 0.355;
+
+  float saturate(float value) {
+    return clamp(value, 0.0, 1.0);
+  }
+
+  mat2 rotate2d(float angle) {
+    float s = sin(angle);
+    float c = cos(angle);
+    return mat2(c, -s, s, c);
+  }
+
+  float hash(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+  }
+
+  float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+  }
+
+  float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 5; i++) {
+      v += a * noise(p);
+      p = rotate2d(0.72) * p * 2.03 + vec2(13.7, 8.1);
+      a *= 0.5;
+    }
+    return v;
+  }
+
+  vec2 lensWarp(vec2 p) {
+    float d = max(length(p), 0.0001);
+    vec2 dir = p / d;
+    float deflection = EVENT_RADIUS / max(d * d, 0.018);
+    float nearField = 1.0 - smoothstep(EVENT_RADIUS * 1.05, 1.12, d);
+    return p + dir * deflection * 0.029 * nearField;
+  }
+
+  float sparseStars(vec2 p) {
+    vec2 uv = p * vec2(uResolution.x / uResolution.y, 1.0);
+    vec2 cell = floor(uv * 84.0);
+    vec2 local = fract(uv * 84.0);
+    float starSeed = hash(cell);
+    vec2 starPos = vec2(hash(cell + 2.31), hash(cell + 7.83));
+    float dotShape = smoothstep(0.045, 0.0, length(local - starPos));
+    float sparse = step(0.986, starSeed);
+    float twinkle = 0.72 + 0.28 * sin(uTime * (1.4 + starSeed * 3.0) + starSeed * 20.0);
+    return dotShape * sparse * twinkle;
+  }
+
+  vec3 heatColor(float heat, float doppler) {
+    vec3 ember = vec3(0.72, 0.08, 0.015);
+    vec3 orange = vec3(1.0, 0.36, 0.055);
+    vec3 gold = vec3(1.0, 0.58, 0.15);
+    vec3 whiteHot = vec3(1.0, 0.72, 0.32);
+    vec3 warm = mix(ember, orange, smoothstep(0.0, 0.45, heat));
+    warm = mix(warm, gold, smoothstep(0.34, 0.78, heat));
+    return mix(warm, whiteHot, smoothstep(1.22, 1.62, heat * doppler));
+  }
+
+  vec4 diskColorAtRadial(vec2 q, float maskRadial, float line, float width, float mask, float layerStrength) {
+    float radial = abs(q.x);
+    float borrowedRadial = max(maskRadial - radial, 0.0);
+    float workingRadial = radial + borrowedRadial * 0.45;
+    float innerEdge = EVENT_RADIUS * 1.12;
+    float radiusMask = smoothstep(innerEdge, innerEdge + 0.085, maskRadial) * (1.0 - smoothstep(1.02, 1.22, maskRadial));
+    float band = exp(-(line * line) / max(width * width, 0.0001));
+    band *= radiusMask * mask;
+
+    float flowAngle = atan(q.y * 1.6, workingRadial + 0.12);
+    float turbulent = fbm(vec2(workingRadial * 8.0 + q.y * 1.6 - uTime * 0.36, flowAngle * 2.2 + uTime * 0.12));
+    float flow = workingRadial * 18.0 - flowAngle * 2.2 - uTime * 0.88 + turbulent * 3.0;
+    float softFilaments = pow(0.5 + 0.5 * sin(flow), 2.0);
+    float broadBands = pow(0.5 + 0.5 * sin(workingRadial * 7.0 + q.y * 1.8 - flowAngle * 1.15 - uTime * 0.48 + turbulent * 3.4), 1.55);
+    float granular = fbm(q * vec2(10.0, 24.0) + vec2(uTime * 0.20, -uTime * 0.08));
+    float texture = 0.78 + softFilaments * 0.075 + broadBands * 0.065 + granular * 0.16;
+
+    float heat = 1.0 - smoothstep(0.19, 1.02, workingRadial);
+    heat = saturate(heat * 0.92 + band * 0.11);
+    float doppler = 0.70 + 0.48 * smoothstep(-0.78, 0.68, q.x);
+    float alpha = saturate(band * texture * (0.84 + doppler * 0.26) * layerStrength);
+    vec3 color = heatColor(heat, doppler) * alpha * (0.56 + heat * 0.54);
+
+    return vec4(color, alpha);
+  }
+
+  vec4 diskColor(vec2 q, float line, float width, float mask, float layerStrength) {
+    return diskColorAtRadial(q, abs(q.x), line, width, mask, layerStrength);
+  }
+
+  vec4 backDisk(vec2 p) {
+    vec2 q = rotate2d(-DISK_TILT) * p;
+    float radial = abs(q.x);
+    float mainLine = -0.035 - 0.028 * exp(-radial * radial * 6.0);
+    float bridge = smoothstep(0.62, 0.96, radial);
+    float span = saturate(radial / 0.82);
+    float crown = sqrt(max(1.0 - span * span, 0.0));
+    float arcSpan = 1.0 - smoothstep(0.92, 1.10, radial);
+
+    float upperArc = mix(0.078 + 0.160 * crown, mainLine + 0.030, bridge);
+    float upperWidth = mix(0.024 + 0.016 * crown, 0.054, bridge);
+    float upperMask = arcSpan * max(smoothstep(0.025, 0.135, q.y), bridge * 0.54);
+    float upperRadial = max(radial, EVENT_RADIUS * 1.42);
+    vec4 upper = diskColorAtRadial(q, upperRadial, q.y - upperArc, upperWidth, upperMask, 0.56);
+    float upperCaustic = exp(-pow((q.y - upperArc) / max(upperWidth * 0.72, 0.001), 2.0));
+    float upperHotspot = (1.0 - bridge) * smoothstep(0.20, 0.42, upperRadial) * (1.0 - smoothstep(0.68, 0.96, upperRadial));
+    upper.rgb += vec3(1.0, 0.48, 0.10) * upperCaustic * upperHotspot * 0.10;
+
+    float lowerArc = mix(-0.070 - 0.082 * crown, mainLine - 0.024, bridge);
+    float lowerWidth = mix(0.018 + 0.010 * crown, 0.045, bridge);
+    float lowerMask = arcSpan * (1.0 - smoothstep(-0.120, -0.012, q.y));
+    vec4 lowerEcho = diskColorAtRadial(q, max(radial, EVENT_RADIUS * 1.38), q.y - lowerArc, lowerWidth, lowerMask, 0.15);
+
+    return vec4(upper.rgb + lowerEcho.rgb, saturate(upper.a + lowerEcho.a));
+  }
+
+  vec4 frontDisk(vec2 p, vec2 rawP) {
+    vec2 q = rotate2d(-DISK_TILT) * p;
+    float radial = abs(q.x);
+    float centerline = -0.035 - 0.028 * exp(-radial * radial * 6.0);
+    float width = 0.060 + 0.020 * exp(-radial * radial * 4.0);
+    float lowerHalf = 1.0 - smoothstep(0.020, 0.138, q.y);
+    float outsideHorizon = smoothstep(EVENT_RADIUS * 1.02, EVENT_RADIUS * 1.14, length(rawP));
+    return diskColor(q, q.y - centerline, width, lowerHalf * outsideHorizon, 1.06);
+  }
+
+  vec4 tightLensingArcs(vec2 p) {
+    vec2 q = rotate2d(-DISK_TILT) * p;
+    float radial = abs(q.x);
+    float span = saturate(radial / 0.58);
+    float crown = sqrt(max(1.0 - span * span, 0.0));
+    float spanMask = 1.0 - smoothstep(0.54, 0.70, radial);
+    float outsideHorizon = smoothstep(EVENT_RADIUS * 1.02, EVENT_RADIUS * 1.22, length(p));
+
+    float upperY = EVENT_RADIUS * 1.06 + 0.086 * crown;
+    float upperLine = exp(-pow((q.y - upperY) / 0.013, 2.0));
+    float upperMask = spanMask * outsideHorizon * smoothstep(0.050, 0.130, q.y);
+
+    float lowerY = -EVENT_RADIUS * 1.04 - 0.050 * crown;
+    float lowerLine = exp(-pow((q.y - lowerY) / 0.012, 2.0));
+    float lowerMask = spanMask * outsideHorizon * (1.0 - smoothstep(-0.110, -0.020, q.y));
+
+    float warmth = 0.72 + 0.34 * smoothstep(-0.46, 0.46, q.x);
+    vec3 upperColor = vec3(1.0, 0.42, 0.08) * upperLine * upperMask * warmth * 0.42;
+    vec3 lowerColor = vec3(0.95, 0.25, 0.06) * lowerLine * lowerMask * warmth * 0.14;
+
+    return vec4(upperColor + lowerColor, saturate(upperLine * upperMask + lowerLine * lowerMask));
+  }
+
+  vec3 photonRing(float d, vec2 p) {
+    float core = exp(-pow((d - EVENT_RADIUS * 1.025) / 0.0046, 2.0));
+    float halo = exp(-pow((d - EVENT_RADIUS * 1.085) / 0.0120, 2.0));
+    float asymmetry = 0.84 + 0.34 * smoothstep(-0.24, 0.24, p.x);
+    vec3 white = vec3(1.0, 0.96, 0.86);
+    vec3 amber = vec3(1.0, 0.45, 0.08);
+    return (white * core * 1.42 + amber * halo * 0.20) * asymmetry;
+  }
+
+  void main() {
+    vec2 frag = gl_FragCoord.xy;
+    vec2 p = (frag - uResolution * 0.5) / min(uResolution.x, uResolution.y);
+    vec2 lensed = lensWarp(p);
+    float d = length(p);
+
+    vec2 starSpace = lensWarp(p * 1.28 + vec2(0.02 * sin(uTime * 0.05), 0.0));
+    float stars = sparseStars(starSpace + vec2(0.43, 0.19));
+    vec3 color = vec3(stars);
+    color += vec3(0.018, 0.026, 0.04) * (1.0 - smoothstep(0.0, 1.22, length(p)));
+
+    vec4 back = backDisk(lensed);
+    color += back.rgb;
+
+    vec4 wrap = tightLensingArcs(p);
+    color += wrap.rgb;
+
+    float outerGlow = (1.0 - smoothstep(EVENT_RADIUS * 1.2, 0.54, d)) * 0.018 / (d * d + 0.08);
+    color += vec3(1.0, 0.28, 0.045) * outerGlow;
+
+    if (d < EVENT_RADIUS) {
+      color = vec3(0.0);
+    }
+
+    color += photonRing(d, p);
+
+    vec4 front = frontDisk(lensed, p);
+    color += front.rgb;
+
+    if (d < EVENT_RADIUS) {
+      color = vec3(0.0);
+    }
+
+    float vignette = smoothstep(1.22, 0.22, length(p));
+    color *= mix(0.34, 1.0, vignette);
+    color = pow(max(color, vec3(0.0)), vec3(0.88));
+
+    gl_FragColor = vec4(color, 1.0);
+  }
+`;
+
+function compileBlackHoleShader(type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    const log = gl.getShaderInfoLog(shader) || 'Unknown shader error';
+    gl.deleteShader(shader);
+    throw new Error(log);
+  }
+
+  return shader;
+}
+
+function createBlackHoleProgram() {
+  const vertexShader = compileBlackHoleShader(gl.VERTEX_SHADER, vertexSource);
+  const fragmentShader = compileBlackHoleShader(gl.FRAGMENT_SHADER, fragmentSource);
+  const program = gl.createProgram();
+
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  gl.deleteShader(vertexShader);
+  gl.deleteShader(fragmentShader);
+
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    const log = gl.getProgramInfoLog(program) || 'Unknown program error';
+    gl.deleteProgram(program);
+    throw new Error(log);
+  }
+
+  return program;
+}
+
+function initBlackHoleBackground() {
+  if (gl) return true;
+
+  blackHoleCanvas = document.createElement('canvas');
+  blackHoleCanvas.setAttribute('aria-hidden', 'true');
+  blackHoleContainer.appendChild(blackHoleCanvas);
+  gl = blackHoleCanvas.getContext('webgl', {
+    alpha: false,
+    antialias: false,
+    depth: false,
+    powerPreference: 'high-performance',
+    preserveDrawingBuffer: false,
+    stencil: false,
+  }) || blackHoleCanvas.getContext('experimental-webgl');
+
+  if (!gl) {
+    console.warn('[groma] WebGL is not available for the collective background');
+    return false;
+  }
+
+  try {
+    blackHoleProgram = createBlackHoleProgram();
+  } catch(e) {
+    console.warn('[groma] black hole shader failed', e);
+    return false;
+  }
+
+  positionLocation = gl.getAttribLocation(blackHoleProgram, 'aPosition');
+  resolutionLocation = gl.getUniformLocation(blackHoleProgram, 'uResolution');
+  timeLocation = gl.getUniformLocation(blackHoleProgram, 'uTime');
+
+  triangle = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, triangle);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1, -1,
+     3, -1,
+    -1,  3,
+  ]), gl.STATIC_DRAW);
+  blackHoleStart = performance.now();
+  return true;
+}
+
+function resizeBlackHoleBackground() {
+  if (!gl) return;
+  const rect = blackHoleContainer.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const cssWidth = Math.max(1, rect.width || window.innerWidth || 1);
+  const cssHeight = Math.max(1, rect.height || window.innerHeight || 1);
+  const nextWidth = Math.floor(cssWidth * dpr);
+  const nextHeight = Math.floor(cssHeight * dpr);
+
+  if (blackHoleCanvas.width !== nextWidth || blackHoleCanvas.height !== nextHeight) {
+    blackHoleCanvas.width = nextWidth;
+    blackHoleCanvas.height = nextHeight;
+  }
+
+  blackHoleWidth = nextWidth;
+  blackHoleHeight = nextHeight;
+  gl.viewport(0, 0, blackHoleWidth, blackHoleHeight);
+}
+
+function renderBlackHoleBackground(now) {
+  if (!blackHoleRunning) return;
+  resizeBlackHoleBackground();
+  gl.useProgram(blackHoleProgram);
+  gl.bindBuffer(gl.ARRAY_BUFFER, triangle);
+  gl.enableVertexAttribArray(positionLocation);
+  gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+  gl.uniform2f(resolutionLocation, blackHoleWidth, blackHoleHeight);
+  gl.uniform1f(timeLocation, (now - blackHoleStart) * 0.001);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  blackHoleRaf = requestAnimationFrame(renderBlackHoleBackground);
+}
+
+function startBlackHoleBackground() {
+  if (blackHoleRunning) return;
+  if (!initBlackHoleBackground()) return;
+  if (collectiveForBlackHole.classList.contains('off-right')) return;
+  blackHoleRunning = true;
+  blackHoleContainer.classList.add('active');
+  blackHoleRaf = requestAnimationFrame(renderBlackHoleBackground);
+}
+
+function stopBlackHoleBackground() {
+  blackHoleRunning = false;
+  if (blackHoleRaf !== null) cancelAnimationFrame(blackHoleRaf);
+  blackHoleRaf = null;
+  blackHoleContainer.classList.remove('active');
+}
+
+window.gromaCollectiveBlackHole = {
+  start: startBlackHoleBackground,
+  stop: stopBlackHoleBackground,
+  resize: resizeBlackHoleBackground,
+};
+
+window.addEventListener('resize', () => {
+  if (blackHoleRunning) resizeBlackHoleBackground();
+}, { passive: true });
+
+if (window.gromaCollectiveBlackHoleWanted && !collectiveForBlackHole.classList.contains('off-right')) {
+  startBlackHoleBackground();
+}
 </script>
 </body>
 </html>
