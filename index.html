@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -29,6 +29,23 @@ body { background: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Helvet
 canvas.vis { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
 #btn { width: 120px; height: 120px; border-radius: 50%; border: 0.5px solid rgba(0,0,0,0.18); background: transparent; cursor: pointer; outline: none; transition: transform 0.08s; position: relative; z-index: 1; -webkit-tap-highlight-color: transparent; }
 #btn.held { transform: scale(0.97); }
+/* motion wrapper: holds drift+scale so it never collides with #btn's press-scale */
+#btn-motion { display: inline-flex; transform-origin: center; will-change: transform; }
+/* slow: gentle drift + gentle breathe */
+#btn-motion.motion-slow { animation: drift-slow 13s ease-in-out infinite, breathe-slow 9s ease-in-out infinite; }
+@keyframes drift-slow { 0%{transform:translate(0,0)} 25%{transform:translate(10px,-8px)} 50%{transform:translate(-7px,9px)} 75%{transform:translate(8px,7px)} 100%{transform:translate(0,0)} }
+@keyframes breathe-slow { 0%,100%{scale:1} 50%{scale:1.06} }
+/* intense: still slow in TIME, but large in AMPLITUDE (quiet yet bold) */
+#btn-motion.motion-intense { animation: drift-intense 16s ease-in-out infinite, breathe-intense 14s ease-in-out infinite; }
+@keyframes drift-intense { 0%{transform:translate(0,0)} 20%{transform:translate(64px,-92px)} 45%{transform:translate(-78px,70px)} 65%{transform:translate(72px,86px)} 85%{transform:translate(-66px,-58px)} 100%{transform:translate(0,0)} }
+@keyframes breathe-intense { 0%,100%{scale:0.62} 50%{scale:1.5} }
+/* random: irregular path + irregular breathe, no clean period */
+#btn-motion.motion-random { animation: drift-random 21s linear infinite, breathe-random 17s ease-in-out infinite; }
+@keyframes drift-random { 0%{transform:translate(0,0)} 13%{transform:translate(34px,-19px)} 27%{transform:translate(-11px,41px)} 38%{transform:translate(52px,28px)} 51%{transform:translate(-44px,-12px)} 63%{transform:translate(18px,-48px)} 79%{transform:translate(-37px,33px)} 91%{transform:translate(26px,15px)} 100%{transform:translate(0,0)} }
+@keyframes breathe-random { 0%{scale:1} 19%{scale:1.18} 34%{scale:0.88} 56%{scale:1.27} 71%{scale:0.95} 88%{scale:1.12} 100%{scale:1} }
+@media (prefers-reduced-motion: reduce) { #btn-motion.motion-slow,#btn-motion.motion-intense,#btn-motion.motion-random { animation: none; } }
+/* chaos: JS-driven erratic flinging. transition gives smooth interpolation between random target points */
+#btn-motion.motion-chaos { animation: none; will-change: transform; }
 #time-display { margin-top: 2.5rem; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 56px; position: relative; z-index: 1; }
 #elapsed { font-size: 32px; font-weight: 400; font-family: 'Courier New', monospace; color: #111; letter-spacing: 0.04em; transition: opacity 0.4s; font-variant-numeric: tabular-nums; }
 #elapsed.idle { opacity: 0; }
@@ -50,6 +67,10 @@ canvas.vis { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0
 .opt-label { font-size: 13px; font-family: 'Courier New', monospace; color: #555; }
 .opt-dot { width: 6px; height: 6px; border-radius: 50%; border: 0.5px solid rgba(0,0,0,0.2); background: transparent; transition: background 0.15s; }
 .opt-dot.on { background: #111; border-color: #111; }
+.motion-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 16px; cursor: pointer; transition: background 0.1s; }
+.motion-row:hover { background: #f5f5f5; }
+.motion-dot { width: 6px; height: 6px; border-radius: 50%; border: 0.5px solid rgba(0,0,0,0.2); background: transparent; transition: background 0.15s; }
+.motion-dot.on { background: #111; border-color: #111; }
 .s-divider { height: 0.5px; background: rgba(0,0,0,0.08); margin: 4px 0; }
 .sound-link-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 16px; cursor: pointer; transition: background 0.1s; }
 .sound-link-row:hover { background: #f5f5f5; }
@@ -107,6 +128,10 @@ input[type=file] { display: none; }
 .collective-bg-none { background: #0a0a0a; }
 .collective-bg-blackhole { background: radial-gradient(circle at 58% 45%, rgba(255,224,150,0.95) 0, rgba(255,130,20,0.65) 24%, rgba(120,28,0,0.42) 48%, rgba(0,0,0,0.95) 78%); }
 .collective-bg-upload { background: rgba(255,255,255,0.035); }
+#collective-nasa-bg video { width: 100%; height: 100%; object-fit: cover; display: block; background: #000; }
+.collective-bg-nasa { background: #000; background-image: radial-gradient(circle at 50% 50%, rgba(0,0,0,1) 0, rgba(0,0,0,1) 27%, rgba(255,190,90,0.95) 31%, rgba(255,120,20,0.5) 44%, rgba(30,8,0,0.95) 72%); }
+.collective-nasa-credit { position: absolute; right: 10px; bottom: 8px; z-index: 4; font: 9px 'Courier New', monospace; letter-spacing: 0.04em; color: rgba(255,255,255,0.28); pointer-events: none; opacity: 0; transition: opacity 0.25s; }
+.collective-nasa-credit.visible { opacity: 1; }
 
 #coll-back { position: fixed; top: 16px; left: 16px; z-index: 9999; font-size: 13px; font-family: 'Courier New', monospace; color: #fff; background: rgba(255,255,255,0.12); border: 0.5px solid rgba(255,255,255,0.4); border-radius: 8px; padding: 6px 14px; cursor: pointer; outline: none; letter-spacing: 0.04em; transition: background 0.15s; display: none; }
 #coll-back.visible { display: block; }
@@ -117,7 +142,7 @@ input[type=file] { display: none; }
 <div id="app">
   <div id="main" class="screen">
     <canvas class="vis" id="vis"></canvas>
-    <button id="btn"></button>
+    <div id="btn-motion"><button id="btn"></button></div>
     <div id="time-display">
       <span id="elapsed" class="idle">0:00</span>
       <span id="total-disp" class="hidden"></span>
@@ -131,6 +156,13 @@ input[type=file] { display: none; }
       <div class="opt-row" data-mode="nothing"><span class="opt-label">nothing</span><div class="opt-dot on"></div></div>
       <div class="opt-row" data-mode="endure"><span class="opt-label">endure</span><div class="opt-dot"></div></div>
       <div class="opt-row" data-mode="random"><span class="opt-label">random</span><div class="opt-dot"></div></div>
+      <div class="s-divider"></div>
+      <div class="s-label">motion</div>
+      <div class="motion-row" data-motion="none"><span class="opt-label">無</span><div class="motion-dot on"></div></div>
+      <div class="motion-row" data-motion="slow"><span class="opt-label">ゆっくり</span><div class="motion-dot"></div></div>
+      <div class="motion-row" data-motion="intense"><span class="opt-label">過激</span><div class="motion-dot"></div></div>
+      <div class="motion-row" data-motion="chaos"><span class="opt-label">カオス</span><div class="motion-dot"></div></div>
+      <div class="motion-row" data-motion="random"><span class="opt-label">ランダム</span><div class="motion-dot"></div></div>
       <div class="s-divider"></div>
       <div class="sound-link-row" id="sound-link"><span class="sound-link-label">sound</span><span class="arrow">›</span></div>
       <div class="s-divider"></div>
@@ -168,12 +200,14 @@ input[type=file] { display: none; }
   <div id="collective" class="screen off-right">
     <div id="collective-bg-media" class="collective-bg-layer"></div>
     <div id="collective-blackhole-bg" class="collective-bg-layer"></div>
+    <div id="collective-nasa-bg" class="collective-bg-layer"><video id="collective-nasa-video" loop muted playsinline preload="none" src="nasa-bh.mp4"></video></div>
     <canvas id="cvis"></canvas>
     <div class="coll-content">
       <div id="coll-total">0:00:00</div>
       <div id="coll-now">0</div>
     </div>
     <button id="collective-bg-select" class="collective-bg-select" type="button">select</button>
+    <div id="collective-nasa-credit" class="collective-nasa-credit">NASA / GSFC / J. Schnittman</div>
     <div id="collective-bg-backdrop" class="collective-bg-backdrop"></div>
     <div id="collective-bg-sheet" class="collective-bg-sheet" aria-hidden="true">
       <div class="collective-bg-title">background</div>
@@ -182,9 +216,16 @@ input[type=file] { display: none; }
           <span class="collective-bg-thumb collective-bg-none"></span>
           <span class="collective-bg-label">none</span>
         </button>
+        <!-- BLACK HOLE temporarily hidden until refined shader is ready. To restore: uncomment this block. Shader code, bg layer, and CSS are all kept intact below. -->
+        <!--
         <button class="collective-bg-option" data-bg="black-hole" type="button">
           <span class="collective-bg-thumb collective-bg-blackhole"></span>
           <span class="collective-bg-label">black hole</span>
+        </button>
+        -->
+        <button class="collective-bg-option" data-bg="nasa" type="button">
+          <span class="collective-bg-thumb collective-bg-nasa"></span>
+          <span class="collective-bg-label">nasa</span>
         </button>
         <button class="collective-bg-option" data-bg="upload" type="button">
           <span class="collective-bg-thumb collective-bg-upload">+</span>
@@ -315,11 +356,19 @@ const collectiveBgBackdrop = document.getElementById('collective-bg-backdrop');
 const collectiveBgSheet = document.getElementById('collective-bg-sheet');
 const collectiveBgUpload = document.getElementById('collective-bg-upload');
 const collectiveBgOptions = Array.from(document.querySelectorAll('.collective-bg-option'));
+const collectiveNasaBg = document.getElementById('collective-nasa-bg');
+const collectiveNasaVideo = document.getElementById('collective-nasa-video');
+const collectiveNasaCredit = document.getElementById('collective-nasa-credit');
 const GROMA_BG_KEY = 'groma_bg';
 const GROMA_BG_DATA_KEY = 'groma_bg_data';
 
 function getStoredCollectiveBg() {
-  try { return localStorage.getItem(GROMA_BG_KEY) || 'none'; } catch(e) { return 'none'; }
+  try {
+    const v = localStorage.getItem(GROMA_BG_KEY) || 'none';
+    // black hole is temporarily hidden; fall back so a previously-saved value doesn't show it. Remove this line when restoring black hole.
+    if (v === 'black-hole') return 'none';
+    return v;
+  } catch(e) { return 'none'; }
 }
 
 function getStoredCollectiveBgData() {
@@ -380,10 +429,24 @@ function renderUploadedCollectiveBg(dataUrl) {
   collectiveBgMedia.appendChild(media);
 }
 
+function startCollectiveNasaBackground() {
+  if (!collectiveNasaBg) return;
+  collectiveNasaBg.classList.add('active');
+  if (collectiveNasaCredit) collectiveNasaCredit.classList.add('visible');
+  if (collectiveNasaVideo) { var p = collectiveNasaVideo.play(); if (p && p.catch) p.catch(function(){}); }
+}
+function stopCollectiveNasaBackground() {
+  if (!collectiveNasaBg) return;
+  collectiveNasaBg.classList.remove('active');
+  if (collectiveNasaCredit) collectiveNasaCredit.classList.remove('visible');
+  if (collectiveNasaVideo) { try { collectiveNasaVideo.pause(); } catch(e){} }
+}
+
 function applyCollectiveBackground(bg, dataUrl) {
   if (bg === 'upload' && !dataUrl) bg = 'none';
   updateCollectiveBgOptions(bg);
   collectiveBgMedia.classList.toggle('active', bg === 'upload');
+  if (bg === 'nasa') { startCollectiveNasaBackground(); } else { stopCollectiveNasaBackground(); }
 
   if (bg === 'upload') {
     stopCollectiveBlackHoleBackground();
@@ -462,6 +525,95 @@ document.querySelectorAll('.opt-row').forEach(row => {
   });
 });
 document.addEventListener('click', e => { if (settingsOpen && !settingsPanel.contains(e.target) && !document.getElementById('corner-trigger').contains(e.target)) closeSettings(); });
+
+// ==========================================
+// BUTTON MOTION (independent from mode; not tied to elapsed time)
+// ==========================================
+const btnMotion = document.getElementById('btn-motion');
+const btnEl = document.getElementById('btn');
+const MOTION_KEY = 'groma_motion';
+
+// --- CHAOS engine: erratic flinging, runs always (independent of press), luck-based grab ---
+let chaosRaf = null, chaosActive = false;
+let chaosX = 0, chaosY = 0, chaosTX = 0, chaosTY = 0, chaosScale = 1, chaosTScale = 1, chaosLastRetarget = 0;
+let hitOpen = false, hitTimer = null;
+function chaosRetarget() {
+  // large amplitude random target; viewport-aware so it roams most of the screen
+  const maxX = Math.min(window.innerWidth * 0.42, 170);
+  const maxY = Math.min(window.innerHeight * 0.40, 320);
+  chaosTX = (Math.random() * 2 - 1) * maxX;
+  chaosTY = (Math.random() * 2 - 1) * maxY;
+  chaosTScale = 0.55 + Math.random() * 1.05; // 0.55x .. 1.6x, erratic size
+}
+function chaosTick(ts) {
+  if (!chaosActive) return;
+  if (ts - chaosLastRetarget > 380 + Math.random() * 260) { chaosRetarget(); chaosLastRetarget = ts; }
+  // fast easing toward target -> sharp, restless motion (fast in TIME, unlike intense)
+  const k = 0.14;
+  chaosX += (chaosTX - chaosX) * k;
+  chaosY += (chaosTY - chaosY) * k;
+  chaosScale += (chaosTScale - chaosScale) * k;
+  // small high-freq jitter on top so it never looks like smooth interpolation
+  const jx = Math.sin(ts * 0.031) * 6 + Math.sin(ts * 0.067) * 4;
+  const jy = Math.cos(ts * 0.043) * 6 + Math.sin(ts * 0.053) * 4;
+  btnMotion.style.transform = 'translate(' + (chaosX + jx) + 'px,' + (chaosY + jy) + 'px)';
+  btnMotion.style.scale = chaosScale.toFixed(3);
+  chaosRaf = requestAnimationFrame(chaosTick);
+}
+function scheduleHitWindow() {
+  // luck-based: the button is grabbable only during brief, randomly-timed windows.
+  // chasing it doesn't help much; success depends on the window happening to be open.
+  clearTimeout(hitTimer);
+  const closedFor = 1100 + Math.random() * 2600; // mostly closed
+  hitTimer = setTimeout(() => {
+    hitOpen = true;
+    btnEl.style.pointerEvents = 'auto';
+    const openFor = 130 + Math.random() * 160; // brief opening
+    hitTimer = setTimeout(() => {
+      hitOpen = false;
+      btnEl.style.pointerEvents = 'none';
+      scheduleHitWindow();
+    }, openFor);
+  }, closedFor);
+}
+function startChaos() {
+  if (chaosActive) return;
+  chaosActive = true;
+  chaosLastRetarget = 0; chaosX = chaosY = 0; chaosScale = 1;
+  chaosRetarget();
+  chaosRaf = requestAnimationFrame(chaosTick);
+  scheduleHitWindow();
+}
+function stopChaos() {
+  chaosActive = false;
+  if (chaosRaf) cancelAnimationFrame(chaosRaf);
+  clearTimeout(hitTimer);
+  hitOpen = false;
+  btnEl.style.pointerEvents = '';   // restore normal grabbability
+  btnMotion.style.transform = '';
+  btnMotion.style.scale = '';
+}
+
+function applyMotion(m) {
+  btnMotion.classList.remove('motion-slow','motion-intense','motion-random','motion-chaos');
+  if (m !== 'chaos') stopChaos();
+  if (m === 'slow') btnMotion.classList.add('motion-slow');
+  else if (m === 'intense') btnMotion.classList.add('motion-intense');
+  else if (m === 'random') btnMotion.classList.add('motion-random');
+  else if (m === 'chaos') { btnMotion.classList.add('motion-chaos'); startChaos(); }
+  document.querySelectorAll('.motion-dot').forEach(d => d.classList.remove('on'));
+  const row = document.querySelector('.motion-row[data-motion="'+m+'"]');
+  if (row) row.querySelector('.motion-dot').classList.add('on');
+}
+document.querySelectorAll('.motion-row').forEach(row => {
+  row.addEventListener('click', () => {
+    const m = row.dataset.motion;
+    applyMotion(m);
+    try { localStorage.setItem(MOTION_KEY, m); } catch(e) {}
+    setTimeout(closeSettings, 200);
+  });
+});
+(function(){ let saved = 'none'; try { saved = localStorage.getItem(MOTION_KEY) || 'none'; } catch(e){} applyMotion(saved); })();
 
 // ==========================================
 // CORNER LONG PRESS
@@ -704,228 +856,202 @@ const vertexSource = `
 `;
 
 const fragmentSource = `
-  #ifdef GL_FRAGMENT_PRECISION_HIGH
-  precision highp float;
-  #else
-  precision mediump float;
-  #endif
+      precision highp float;
 
-  uniform vec2 uResolution;
-  uniform float uTime;
-  varying vec2 vUv;
+      uniform float uTime;
+      uniform vec2 uResolution;
+      varying vec2 vUv;
 
-  const float PI = 3.141592653589793;
-  const float EVENT_RADIUS = 0.125;
-  const float DISK_TILT = 0.355;
+      #define PI 3.141592653589793
 
-  float saturate(float value) {
-    return clamp(value, 0.0, 1.0);
-  }
+      mat2 rot(float a) {
+        float s = sin(a);
+        float c = cos(a);
+        return mat2(c, -s, s, c);
+      }
 
-  mat2 rotate2d(float angle) {
-    float s = sin(angle);
-    float c = cos(angle);
-    return mat2(c, -s, s, c);
-  }
+      float hash(vec2 p) {
+        p = fract(p * vec2(123.34, 456.21));
+        p += dot(p, p + 45.32);
+        return fract(p.x * p.y);
+      }
 
-  float hash(vec2 p) {
-    p = fract(p * vec2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-    return fract(p.x * p.y);
-  }
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        float a = hash(i);
+        float b = hash(i + vec2(1.0, 0.0));
+        float c = hash(i + vec2(0.0, 1.0));
+        float d = hash(i + vec2(1.0, 1.0));
+        return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+      }
 
-  float noise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    vec2 u = f * f * (3.0 - 2.0 * f);
+      float fbm(vec2 p) {
+        float v = 0.0;
+        float a = 0.5;
+        for (int i = 0; i < 6; i++) {
+          v += a * noise(p);
+          p = rot(0.72) * p * 2.03 + vec2(9.1, 4.7);
+          a *= 0.5;
+        }
+        return v;
+      }
 
-    float a = hash(i);
-    float b = hash(i + vec2(1.0, 0.0));
-    float c = hash(i + vec2(0.0, 1.0));
-    float d = hash(i + vec2(1.0, 1.0));
+      float ridge(float x, float width) {
+        return exp(-x * x / max(width, 0.0001));
+      }
 
-    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-  }
+      vec3 fireRamp(float t) {
+        t = clamp(t, 0.0, 1.0);
+        vec3 deep = vec3(0.18, 0.015, 0.0);
+        vec3 red = vec3(0.85, 0.075, 0.0);
+        vec3 orange = vec3(1.0, 0.42, 0.035);
+        vec3 gold = vec3(1.0, 0.80, 0.26);
+        vec3 white = vec3(1.0, 0.96, 0.74);
+        vec3 c = mix(deep, red, smoothstep(0.05, 0.32, t));
+        c = mix(c, orange, smoothstep(0.24, 0.58, t));
+        c = mix(c, gold, smoothstep(0.48, 0.82, t));
+        c = mix(c, white, smoothstep(0.78, 1.0, t));
+        return c;
+      }
 
-  float fbm(vec2 p) {
-    float v = 0.0;
-    float a = 0.5;
-    for (int i = 0; i < 5; i++) {
-      v += a * noise(p);
-      p = rotate2d(0.72) * p * 2.03 + vec2(13.7, 8.1);
-      a *= 0.5;
-    }
-    return v;
-  }
+      vec3 diskLayer(vec2 p, float layer, float side) {
+        float r = length(p);
+        float a = atan(p.y, p.x);
 
-  vec2 lensWarp(vec2 p) {
-    float d = max(length(p), 0.0001);
-    vec2 dir = p / d;
-    float deflection = EVENT_RADIUS / max(d * d, 0.018);
-    float nearField = 1.0 - smoothstep(EVENT_RADIUS * 1.05, 1.12, d);
-    return p + dir * deflection * 0.029 * nearField;
-  }
+        float gravity = 1.0 / (r * r + 0.035);
+        float bend = 0.20 * gravity;
+        float swirl = 0.17 * gravity + 0.08 * sin(3.0 * a + uTime * 0.18);
+        vec2 q = p;
+        q = rot(swirl) * q;
+        q.y += side * bend * (0.09 + 0.018 * sin(2.0 * a + layer));
+        q.x += 0.030 * sin(q.y * 7.0 + uTime * 0.15) * gravity;
 
-  float sparseStars(vec2 p) {
-    vec2 uv = p * vec2(uResolution.x / uResolution.y, 1.0);
-    vec2 cell = floor(uv * 84.0);
-    vec2 local = fract(uv * 84.0);
-    float starSeed = hash(cell);
-    vec2 starPos = vec2(hash(cell + 2.31), hash(cell + 7.83));
-    float dotShape = smoothstep(0.045, 0.0, length(local - starPos));
-    float sparse = step(0.986, starSeed);
-    float twinkle = 0.72 + 0.28 * sin(uTime * (1.4 + starSeed * 3.0) + starSeed * 20.0);
-    return dotShape * sparse * twinkle;
-  }
+        float qr = length(q);
+        float qa = atan(q.y, q.x);
+        float diskRadius = mix(0.78, 1.44, smoothstep(-1.0, 1.0, layer));
+        float tilt = 0.18 + 0.04 * sin(layer * 2.4);
 
-  vec3 heatColor(float heat, float doppler) {
-    vec3 ember = vec3(0.72, 0.08, 0.015);
-    vec3 orange = vec3(1.0, 0.36, 0.055);
-    vec3 gold = vec3(1.0, 0.58, 0.15);
-    vec3 whiteHot = vec3(1.0, 0.72, 0.32);
-    vec3 warm = mix(ember, orange, smoothstep(0.0, 0.45, heat));
-    warm = mix(warm, gold, smoothstep(0.34, 0.78, heat));
-    return mix(warm, whiteHot, smoothstep(1.22, 1.62, heat * doppler));
-  }
+        float warpedPlane = q.y - side * (
+          0.18 / (qr + 0.20)
+          - 0.048 * qr
+          + 0.025 * sin(qa * 4.0 + uTime * 0.28 + layer * 3.1)
+        );
+        float thickness = 0.034 + 0.022 * smoothstep(0.0, 1.0, qr) + 0.012 * fbm(q * 7.0 + layer);
+        float lane = ridge(warpedPlane / max(tilt, 0.1), thickness);
 
-  vec4 diskColorAtRadial(vec2 q, float maskRadial, float line, float width, float mask, float layerStrength) {
-    float radial = abs(q.x);
-    float borrowedRadial = max(maskRadial - radial, 0.0);
-    float workingRadial = radial + borrowedRadial * 0.45;
-    float innerEdge = EVENT_RADIUS * 1.12;
-    float radiusMask = smoothstep(innerEdge, innerEdge + 0.085, maskRadial) * (1.0 - smoothstep(1.02, 1.22, maskRadial));
-    float band = exp(-(line * line) / max(width * width, 0.0001));
-    band *= radiusMask * mask;
+        float radial = smoothstep(0.16, 0.31, qr) * (1.0 - smoothstep(diskRadius, diskRadius + 0.26, qr));
+        float stream = fbm(vec2(qa * 5.2 + uTime * (0.26 + layer * 0.04), qr * 9.5 - uTime * 0.42 + layer * 4.0));
+        float filament = pow(smoothstep(0.20, 1.0, stream), 2.2);
+        float gaps = 0.58 + 0.42 * sin(qa * 18.0 + qr * 19.0 - uTime * 2.1 + stream * 4.0);
+        float density = lane * radial * (0.55 + 0.95 * filament) * (0.68 + 0.32 * gaps);
 
-    float flowAngle = atan(q.y * 1.6, workingRadial + 0.12);
-    float turbulent = fbm(vec2(workingRadial * 8.0 + q.y * 1.6 - uTime * 0.36, flowAngle * 2.2 + uTime * 0.12));
-    float flow = workingRadial * 18.0 - flowAngle * 2.2 - uTime * 0.88 + turbulent * 3.0;
-    float softFilaments = pow(0.5 + 0.5 * sin(flow), 2.0);
-    float broadBands = pow(0.5 + 0.5 * sin(workingRadial * 7.0 + q.y * 1.8 - flowAngle * 1.15 - uTime * 0.48 + turbulent * 3.4), 1.55);
-    float granular = fbm(q * vec2(10.0, 24.0) + vec2(uTime * 0.20, -uTime * 0.08));
-    float texture = 0.78 + softFilaments * 0.075 + broadBands * 0.065 + granular * 0.16;
+        float doppler = smoothstep(-0.92, 0.72, cos(qa - 0.24));
+        float beaming = mix(0.32, 1.85, doppler);
+        float redshift = smoothstep(0.16, 0.72, qr);
+        float heat = density * beaming * redshift;
+        vec3 color = fireRamp(heat * 0.72 + filament * 0.35);
 
-    float heat = 1.0 - smoothstep(0.19, 1.02, workingRadial);
-    heat = saturate(heat * 0.92 + band * 0.11);
-    float doppler = 0.70 + 0.48 * smoothstep(-0.78, 0.68, q.x);
-    float alpha = saturate(band * texture * (0.84 + doppler * 0.26) * layerStrength);
-    vec3 color = heatColor(heat, doppler) * alpha * (0.56 + heat * 0.54);
+        color *= heat * (0.45 + 0.75 * layer);
+        color *= mix(0.72, 1.18, smoothstep(0.0, 1.0, side * p.y + 0.52));
+        return color;
+      }
 
-    return vec4(color, alpha);
-  }
+      vec3 lensedBridge(vec2 p) {
+        float x = p.x;
+        float y = p.y;
+        float r = length(p);
+        float a = atan(y, x);
+        float safeR = max(r, 0.025);
+        float gravity = 1.0 / (safeR * safeR + 0.040);
+        float turbulent = fbm(vec2(a * 6.0 - uTime * 0.34, safeR * 12.0 + uTime * 0.18));
+        float filaments = fbm(vec2(x * 8.0 + uTime * 0.24, y * 18.0 - uTime * 0.38));
 
-  vec4 diskColor(vec2 q, float line, float width, float mask, float layerStrength) {
-    return diskColorAtRadial(q, abs(q.x), line, width, mask, layerStrength);
-  }
+        float coreAvoid = smoothstep(0.16, 0.26, r);
+        float span = smoothstep(0.12, 0.42, abs(x)) * (1.0 - smoothstep(0.88, 1.18, abs(x)));
+        float beaming = mix(0.48, 1.75, smoothstep(-0.42, 0.78, x + 0.09 * sin(a)));
 
-  vec4 backDisk(vec2 p) {
-    vec2 q = rotate2d(-DISK_TILT) * p;
-    float radial = abs(q.x);
-    float mainLine = -0.035 - 0.028 * exp(-radial * radial * 6.0);
-    float bridge = smoothstep(0.62, 0.96, radial);
-    float span = saturate(radial / 0.82);
-    float crown = sqrt(max(1.0 - span * span, 0.0));
-    float arcSpan = 1.0 - smoothstep(0.92, 1.10, radial);
+        float upperCurve = 0.32 * exp(-x * x * 1.7) + 0.08 / (abs(x) + 0.42) - 0.075;
+        upperCurve += 0.018 * sin(x * 9.0 + uTime * 0.55 + turbulent * 3.0);
+        float lowerCurve = -0.25 * exp(-x * x * 1.45) - 0.045 / (abs(x) + 0.56) + 0.050;
+        lowerCurve += 0.014 * sin(x * 8.0 - uTime * 0.42 + turbulent * 4.0);
+        float frontCurve = 0.015 * sin(x * 5.0 + uTime * 0.22) - 0.040 * exp(-x * x * 4.8);
 
-    float upperArc = mix(0.078 + 0.160 * crown, mainLine + 0.030, bridge);
-    float upperWidth = mix(0.024 + 0.016 * crown, 0.054, bridge);
-    float upperMask = arcSpan * max(smoothstep(0.025, 0.135, q.y), bridge * 0.54);
-    float upperRadial = max(radial, EVENT_RADIUS * 1.42);
-    vec4 upper = diskColorAtRadial(q, upperRadial, q.y - upperArc, upperWidth, upperMask, 0.56);
-    float upperCaustic = exp(-pow((q.y - upperArc) / max(upperWidth * 0.72, 0.001), 2.0));
-    float upperHotspot = (1.0 - bridge) * smoothstep(0.20, 0.42, upperRadial) * (1.0 - smoothstep(0.68, 0.96, upperRadial));
-    upper.rgb += vec3(1.0, 0.48, 0.10) * upperCaustic * upperHotspot * 0.10;
+        float upper = ridge(y - upperCurve, 0.010 + 0.020 * abs(x) + 0.020 * turbulent);
+        float lower = ridge(y - lowerCurve, 0.012 + 0.019 * abs(x) + 0.018 * turbulent);
+        float front = ridge(y - frontCurve, 0.020 + 0.012 * turbulent);
 
-    float lowerArc = mix(-0.070 - 0.082 * crown, mainLine - 0.024, bridge);
-    float lowerWidth = mix(0.018 + 0.010 * crown, 0.045, bridge);
-    float lowerMask = arcSpan * (1.0 - smoothstep(-0.120, -0.012, q.y));
-    vec4 lowerEcho = diskColorAtRadial(q, max(radial, EVENT_RADIUS * 1.38), q.y - lowerArc, lowerWidth, lowerMask, 0.15);
+        float density = (upper * 0.95 + lower * 0.82 + front * 0.75) * span * coreAvoid;
+        density *= 0.45 + 1.15 * pow(filaments, 1.9);
+        density *= 0.65 + 0.35 * sin(a * 22.0 + safeR * 29.0 - uTime * 2.2 + turbulent * 5.0);
 
-    return vec4(upper.rgb + lowerEcho.rgb, saturate(upper.a + lowerEcho.a));
-  }
+        vec3 color = fireRamp(density * beaming * 0.92 + filaments * 0.22);
+        return color * density * beaming * 0.42;
+      }
 
-  vec4 frontDisk(vec2 p, vec2 rawP) {
-    vec2 q = rotate2d(-DISK_TILT) * p;
-    float radial = abs(q.x);
-    float centerline = -0.035 - 0.028 * exp(-radial * radial * 6.0);
-    float width = 0.060 + 0.020 * exp(-radial * radial * 4.0);
-    float lowerHalf = 1.0 - smoothstep(0.020, 0.138, q.y);
-    float outsideHorizon = smoothstep(EVENT_RADIUS * 1.02, EVENT_RADIUS * 1.14, length(rawP));
-    return diskColor(q, q.y - centerline, width, lowerHalf * outsideHorizon, 1.06);
-  }
+      vec3 stars(vec2 p) {
+        vec2 cell = floor(p * 190.0);
+        vec2 f = fract(p * 190.0) - 0.5;
+        float h = hash(cell);
+        float star = smoothstep(0.998, 1.0, h) * exp(-dot(f, f) * 45.0);
+        return vec3(star) * vec3(0.55, 0.70, 1.0) * 0.22;
+      }
 
-  vec4 tightLensingArcs(vec2 p) {
-    vec2 q = rotate2d(-DISK_TILT) * p;
-    float radial = abs(q.x);
-    float span = saturate(radial / 0.58);
-    float crown = sqrt(max(1.0 - span * span, 0.0));
-    float spanMask = 1.0 - smoothstep(0.54, 0.70, radial);
-    float outsideHorizon = smoothstep(EVENT_RADIUS * 1.02, EVENT_RADIUS * 1.22, length(p));
+      void main() {
+        vec2 p = (gl_FragCoord.xy - 0.5 * uResolution.xy) / min(uResolution.x, uResolution.y);
 
-    float upperY = EVENT_RADIUS * 1.06 + 0.086 * crown;
-    float upperLine = exp(-pow((q.y - upperY) / 0.013, 2.0));
-    float upperMask = spanMask * outsideHorizon * smoothstep(0.050, 0.130, q.y);
+        float r = length(p);
+        float a = atan(p.y, p.x);
 
-    float lowerY = -EVENT_RADIUS * 1.04 - 0.050 * crown;
-    float lowerLine = exp(-pow((q.y - lowerY) / 0.012, 2.0));
-    float lowerMask = spanMask * outsideHorizon * (1.0 - smoothstep(-0.110, -0.020, q.y));
+        vec3 col = vec3(0.0);
+        col += stars(p + vec2(7.1, 2.4));
 
-    float warmth = 0.72 + 0.34 * smoothstep(-0.46, 0.46, q.x);
-    vec3 upperColor = vec3(1.0, 0.42, 0.08) * upperLine * upperMask * warmth * 0.42;
-    vec3 lowerColor = vec3(0.95, 0.25, 0.06) * lowerLine * lowerMask * warmth * 0.14;
+        float lens = 1.0 / (r * r + 0.032);
+        vec2 lensed = p;
+        lensed = rot(0.038 * lens + 0.030 * sin(a * 2.0 - uTime * 0.12)) * lensed;
+        lensed += normalize(p + 0.0001) * (0.022 * lens);
 
-    return vec4(upperColor + lowerColor, saturate(upperLine * upperMask + lowerLine * lowerMask));
-  }
+        vec3 lowerArc = diskLayer(lensed, 0.24, -1.0);
+        vec3 upperArc = diskLayer(lensed, 0.78, 1.0);
+        vec3 coreDisk = diskLayer(lensed * vec2(1.0, 0.86), 0.52, 0.0);
+        col += coreDisk * 1.05;
+        col += upperArc * 1.35;
+        col += lowerArc * 1.20;
+        col += lensedBridge(lensed) * 0.75;
 
-  vec3 photonRing(float d, vec2 p) {
-    float core = exp(-pow((d - EVENT_RADIUS * 1.025) / 0.0046, 2.0));
-    float halo = exp(-pow((d - EVENT_RADIUS * 1.085) / 0.0120, 2.0));
-    float asymmetry = 0.84 + 0.34 * smoothstep(-0.24, 0.24, p.x);
-    vec3 white = vec3(1.0, 0.96, 0.86);
-    vec3 amber = vec3(1.0, 0.45, 0.08);
-    return (white * core * 1.42 + amber * halo * 0.20) * asymmetry;
-  }
+        float photonBase = abs(r - 0.176);
+        float ringJitter = 0.008 * fbm(vec2(a * 8.0, uTime * 0.24));
+        float photonRing = exp(-pow((photonBase - ringJitter) / 0.009, 2.0));
+        float subRing = exp(-pow((abs(r - 0.208) - ringJitter * 0.6) / 0.019, 2.0));
+        float ringBeam = mix(0.42, 1.85, smoothstep(-0.65, 0.95, cos(a - 0.18)));
+        col += fireRamp(0.86) * photonRing * ringBeam * 1.35;
+        col += vec3(1.0, 0.42, 0.08) * subRing * ringBeam * 0.30;
 
-  void main() {
-    vec2 frag = gl_FragCoord.xy;
-    vec2 p = (frag - uResolution * 0.5) / min(uResolution.x, uResolution.y);
-    vec2 lensed = lensWarp(p);
-    float d = length(p);
+        float glow = exp(-r * 2.4) * 0.055;
+        glow += exp(-pow((r - 0.55) / 0.55, 2.0)) * 0.055;
+        glow += exp(-pow(abs(p.y) / 0.56, 1.7)) * exp(-abs(p.x) * 1.05) * 0.035;
+        col += vec3(1.0, 0.31, 0.045) * glow;
 
-    vec2 starSpace = lensWarp(p * 1.28 + vec2(0.02 * sin(uTime * 0.05), 0.0));
-    float stars = sparseStars(starSpace + vec2(0.43, 0.19));
-    vec3 color = vec3(stars);
-    color += vec3(0.018, 0.026, 0.04) * (1.0 - smoothstep(0.0, 1.22, length(p)));
+        float eventHorizon = smoothstep(0.190, 0.158, r);
+        float innerShade = smoothstep(0.30, 0.17, r);
+        col = mix(col, vec3(0.0), eventHorizon);
+        col *= 1.0 - innerShade * 0.60;
 
-    vec4 back = backDisk(lensed);
-    color += back.rgb;
+        float shadowSoft = smoothstep(0.31, 0.18, r);
+        col *= 1.0 - shadowSoft * 0.48;
 
-    vec4 wrap = tightLensingArcs(p);
-    color += wrap.rgb;
+        vec2 vignetteUv = vUv * (1.0 - vUv.yx);
+        float vignette = pow(clamp(vignetteUv.x * vignetteUv.y * 14.0, 0.0, 1.0), 0.42);
+        col *= vignette;
 
-    float outerGlow = (1.0 - smoothstep(EVENT_RADIUS * 1.2, 0.54, d)) * 0.018 / (d * d + 0.08);
-    color += vec3(1.0, 0.28, 0.045) * outerGlow;
+        col = max(col, vec3(0.0));
+        col = col / (1.0 + col);
+        col = pow(col, vec3(0.84));
 
-    if (d < EVENT_RADIUS) {
-      color = vec3(0.0);
-    }
-
-    color += photonRing(d, p);
-
-    vec4 front = frontDisk(lensed, p);
-    color += front.rgb;
-
-    if (d < EVENT_RADIUS) {
-      color = vec3(0.0);
-    }
-
-    float vignette = smoothstep(1.22, 0.22, length(p));
-    color *= mix(0.34, 1.0, vignette);
-    color = pow(max(color, vec3(0.0)), vec3(0.88));
-
-    gl_FragColor = vec4(color, 1.0);
-  }
-`;
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `;
 
 function compileBlackHoleShader(type, source) {
   const shader = gl.createShader(type);
